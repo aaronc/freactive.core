@@ -25,8 +25,9 @@ algorithms.
 
 **Core Definitions and Patterns:**
 
-* A `reactive` refers to any `IDeref` instance which registers itself as a dependency
-to any parent reactive computation that is `deref`ing them
+* A `reactive` refers to any `IDeref` instance which will register itself as a dependency
+to a parent computation that is `deref`ing them if the parent has bound an "invalidation"
+function thread locally
 * `reactive`'s register themselves as dependencies by adding an "invalidate" function
 that the parent has bound thread locally during the scope of the computation to their
 `add-watch` or `add-invalidation` watch (see [`IInvalidates`](#iinvalidates)).
