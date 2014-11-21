@@ -13,7 +13,7 @@ already in Clojure core.
 
 ### Reactive Atoms
 
-A reactive atom 
+A reactive atom is exactly like a Clojure atom except that it allows a parent computation to register it as a dependency.
 
 ### Reactive Expressions
 
