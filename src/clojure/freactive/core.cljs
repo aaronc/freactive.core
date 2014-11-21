@@ -229,28 +229,6 @@
      (set! (.-sully reactive) (make-sully-fn reactive))
      reactive)))
 
-;(declare update-cursor-state)
-
-;(defn- add-cursor-watch [cursor ref]
-;  ((get-add-watch* ref)
-;   ref cursor
-;   (fn sully-cursor
-;     ([]
-;      (set! (.-dirty cursor) true)
-;      (if-not (empty? (.-watches cursor))
-;        (binding [*invalidate* nil]
-;          @cursor
-;          (-notify-invalidation-watches cursor))))
-;     ([_ _]
-;      (remove-invalidation-watch ref cursor)
-;      (sully-cursor))
-;     ([_ _ old-value new-value]
-;      (remove-watch ref cursor)
-;      (sully-cursor)))))
-
-;(defn- update-cursor-state [cursor ref]
-;  )
-
 (defn- cursor-swap! [cursor ref getter setter f]
   (swap! ref (fn [cur] (setter cur (f (getter cur)))))
   (-raw-deref cursor))
@@ -366,4 +344,3 @@
 (defn lazy-cursor
   ([ref korks-or-getter] (cursor* ref korks-or-getter nil true ))
   ([ref getter setter] (cursor* ref getter setter true)))
-
