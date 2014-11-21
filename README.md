@@ -13,9 +13,43 @@ already in Clojure core.
 
 ### Reactive Atoms
 
+A reactive atom 
+
 ### Reactive Expressions
 
 ### Reactive Cursors
+
+`cursor`'s in freactive.core behave and look exactly like `atom`'s. You can use Clojurescript's built-in `swap!` and `reset!` functions on them and state will be propogated back to their parents. By default, change notifications from the parent propagate to the cursor when and only when they affect the state of the cursor.
+
+Fundamentally, cursors are based on [lenses](https://speakerdeck.com/markhibberd/lens-from-the-ground-up-in-clojure). That means that you can pass any arbitrary getter (of the form `(fn [parent-state])`) and setter (of the form `(fn [parent-state cursor-state])`) and the cursor will handle it.
+
+```clojure
+(def my-atom (atom 0))
+(defn print-number [my-atom-state]
+  ;; print the number with some formmating
+)
+(defn parse-number [my-atom-state new-cursor-state]
+  ;; parse new-cursor-state into a number and return it
+  ;; if parsing fails you can just return my-atom-state
+  ;; to cancel the update or throw a validation
+  ;; exception
+)
+(def a-str (cursor my-atom print-number parse-number))
+;; @a-str -> "0"
+(reset! a-str "1.2")
+(println @my-atom)
+;; 1.2
+```
+
+cursors can also be created by passing in a keyword or a key sequence that would be passed to `get-in` or `assoc-in` to the `cursor` function:
+
+```clojure
+(def my-atom (atom {:a {:b [{:x 0}]}}))
+(def ab0 (cursor my-atom [:a :b 0])) ;; @ab0 -> {:x 0}
+(def a (cursor my-atom :a) ;; a keyword can be used as well
+```
+
+This is somewhat similar (but not exactly) to cursors in [om][om] - which was the inspiration for cursors in freactive. It should be noted that in freactive, cursors were designed to work with lenses first and then with key or key sequences (`korks`) for convenience. A cursor doesn't know anything about the structure of data it references (i.e. the associative path from parent to child).
 
 ## Core Idioms
 
