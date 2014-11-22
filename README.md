@@ -4,10 +4,18 @@ Reactive atoms, expressions, cursors for Clojure(Script).
 
 The goal of this library is to abstract the reactive atom and reactive computation
 or computed observable concepts from [reagent][reagent] and [reflex][reflex], as
-well as a variation of the cursor concept from [om][om]. The broader aim of this
+well as a generalization of the cursor concept from [om][om]. The broader aim of this
 goal is to enable a set of reactive data structures that can be shared between many
 different front-end frameworks that is also based, as much as possible, only on idioms
 already in Clojure core.
+
+The data structures in this library aim to be:
+* **Generalized** - not tied to a specific problem domain or framework
+* **Efficient** - not cause much more performance overhead than doing updates manually (possibly less in some cases)
+* **Predictable** - have predictable effects based on inputs
+* **Configurable** - in terms of laziness vs eagerness
+* **Disposable** - implement simple patterns that allow trees of reactive updates to be deactivated almost automatically
+* **Debuggable** - allow for easy ways to observe dependency capture and invalidation events
 
 ## Core Data Structures
 
