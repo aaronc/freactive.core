@@ -10,11 +10,15 @@ Here are the conventions briefly:
 * A **common set of reactive data types (atom, cursor, expression, etc.)** will be used so that state-management is decoupled from rendering
 * **Functions can be bound as event handlers or lifecycle callbacks using attributes** (or Clojure metadata if needed)
 
-Platforms that could conceivabily be targeted:
+**Guiding Principles:**
+* Favor simple and consistent patterns wherever possible
+* Utilize as much as much possible the idioms already present in Clojure core
 
-By ClojureScript: the DOM, of course, but also Qt/QML (for native + iOS & Android apps), Canvas, WebGL, Windows Metro, etc.
+Platforms that could conceivabily be targeted include:
 
-By Clojure: JavaFX, Processing/Quil, WPF, etc.
+By ClojureScript: the DOM, of course, but also Qt/QML (for native + iOS & Android apps), Canvas, WebGL, WinRT.
+
+By Clojure: JavaFX, Processing/Quil, WPF, WinRT.
 
 Implementations already exist for the DOM ([freactive][freactive]) and JavaFX ([fx-clj][fx-clj] - only attribute binding supported for now).
 
