@@ -31,17 +31,17 @@ Bindings are initiated by the underlying rendering framework when they see somet
 
 ### Shared Library of Reactive Data Types
 
-If each UI library provides its own set of observable reference types, we are complecting things. If we can settle on some idiomatic conventions for these data types and possibly a good base implementation, we can greatly simplify things because managing state and representing UI's can be neatly decoupled with a thing layer change notifications (`IWatchable`, `IRef` and `IInvalidates`) between them.
+If each UI library provides its own set of observable reference types, we are complecting things. If we can settle on some idiomatic conventions for these data types and possibly a good base implementation, we can greatly simplify things because managing state and representing UI's can be neatly decoupled with a thin layer of change notifications (`IWatchable`, `IRef` and `IInvalidates`) between them.
 
-freactive.core is proposed as a base library of reference types and conventions. But if there is an agreed upon protocol, there can be any number of implementations - possibly some for special things like binding to database state.
+freactive.core is proposed as a base library of reference types and conventions that isn't tied to another library (although it is used by freactive and fx-clj). If there is an agreed upon protocol, there can be any number of implementations - possibly some for special things like binding to database state.
 
 ### Events
 
-Events should be framework-specific. Usually the underlying framework will provide a set of events and the Clojure wrapper for that framework will have its own events (sometimes called lifecycle callbacks). To simplify things, it is suggested that the general convention is for both events to be defined in the attribute map where possible. To distinguish between platform events and lifecycle callbacks either namespace-prefixed keywords or nested maps should be used. The :on- convention for distinguishing events from other types of attributes is well understood. Metadata attached to observable refs can also be used for binding level callbacks but should be reserved for advanced users (because it requires use of `alter-meta!` which uses mutation).
+Events should be framework-specific. Usually the underlying framework will provide a set of events and the Clojure wrapper for that framework will have its own events (sometimes called lifecycle callbacks). To simplify things, it is suggested that the general convention is for both events to be defined in the attribute map where possible. To distinguish between platform events and lifecycle callbacks either namespace-prefixed keywords or nested maps should be used. The :on- convention for distinguishing events from other types of attributes is well understood. Metadata attached to observable refs can also be used for binding-level callbacks, but should be reserved for advanced users (because it requires use of `alter-meta!` which uses mutation).
 
 ### Virtual Nodes
 
-Since this convention is quite common in the Clojure(Script) nowadays, it probably needs little further explanation. A virtual node is a Clojure(Script) vector who's first element is a keyword known as the "tag" (in CS terms, I think this is called a tagged variant). The second element, if it is a map, will be treated as a map of attributes with keyword-keys. *Just a reminder: we can use namespaced keywords for tags and attributes to define custom, namespaced behavior.*
+Since this convention (hiccup-style virtual nodes) is quite common in the Clojure(Script) nowadays, it probably needs little further explanation. A virtual node is a Clojure(Script) vector who's first element is a keyword known as the "tag" (in CS terms, I think this is called a tagged variant). The second element, if it is a map, will be treated as a map of attributes with keyword-keys. *Just a reminder: we can use namespaced keywords for tags and attributes to define custom, namespaced behavior.*
 
 **Rationale**
 
