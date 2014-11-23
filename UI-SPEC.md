@@ -6,7 +6,7 @@ The goal of this document is to suggest a convention that can used for **declara
 
 Here are the conventions briefly:
 * **A "virtual node" is data in the form of `[:node-type attrs-map? & children]`** (the style that was introduced in [hiccup][hiccup], more generally called a "recursive variant tree") for ease of use
-* **If something that is "derefable"** (implements `IDeref`) **and "watchable"** (implements `cljs.core/IWatchable`, `clojure.core/IRef` or `freactive.core/Invalidates`) **is passed as an attribute value or child in a virtual node, a reactive binding will be created** so that custom reactive data sources (*maybe even tied to database entities!*) can be used
+* **If something that is "derefable"** (implements `IDeref`) **and "watchable"** (implements `cljs.core/IWatchable`, `clojure.lang.IRef` or `freactive.core/Invalidates`) **is passed as an attribute value or child in a virtual node, a reactive binding will be created** so that custom reactive data sources (*maybe even tied to database entities!*) can be used
 * A **common set of reactive data types (atom, cursor, expression, etc.)** will be used so that state-management is decoupled from rendering
 * **Functions can be bound as event handlers or lifecycle callbacks using attributes** (or Clojure metadata if needed)
 
@@ -22,19 +22,25 @@ By Clojure: JavaFX, Processing/Quil, WPF, etc.
 
 Since this convention is quite common in the Clojure(Script) nowadays, it probably needs little further explanation. A virtual node is a Clojure(Script) vector who's first element is a keyword known as the "tag" (in CS terms, I think this is called a tagged variant). The second element, if it is a map, will be treated as a map of attributes with keyword-keys. *Just a reminder: we can use namespaced keywords for tags and attributes to define custom, namespaced behavior.*
 
-**Rationale:** Virtual nodes are a good convention because:
+**Rationale**
+
+Since this choice may be controversial, some rationale is provided. It is thought that vector/keyword/map virtual nodes are a good convention because:
 
 * they intuitively make sense to people reducing the learning curve and cognitive load
-* they correctly model something that really is a tree of heterogenous elements (apparently the node are called variants and the whole tree structure is called a recursive variant tree in CS terms)
+* they correctly model something that really is a tree of heterogenous elements (apparently the nodes are called variants and the whole tree structure is called a recursive variant tree in CS terms)
 * they are extensible - keywords allow an unlimited number of application specific tags and attributes
 * they are just data
 
 ### Bindings
 
+Bindings are initiated by the underlying rendering framework when they see something that is not a literal but rather a reference type as an attribute value or node in a tree. Clojure has a built-in concept for something that is a reference - likely to change - as opposed to a value - pure data. That is the `IDeref` interface/protocol. It allows one operation whih is dereferencing the reference type to get the "value" of the reference at the current time - by convention this "value" should be immutable - i.e. pure data. Clojure also has core interfaces for listening to changes on reference types - `IRef` in Clojure and `IWatchable` in Clojurescript. It makes sense to use these types as the basis for doing reactive data binding. It just seems to make sense to use they core interfaces to establish data bindings. By making it very general, a user interface renderer can bind to references implementing these protocols without knowing which implementations are used.
+
 ### Shared Library of Reactive Data Types
 
-This is provided in freactive.core, but because the convention defines anything that is "derefable" and "watchable", other data types can be used. It is important to have a good, tested set of defaults as well as the ability to extend.
+If each UI library provides its own set of observable reference types, we are complecting things. Let's just settle on some idiomatic conventions and possibly a good base library of observable reference types so that managing state is one thing and managing UI representation is another thing and we have thin convention for "reactively" binding between the two.
 
-
+freactive.core is proposed as a base library of reference types and conventions. If there is an agreed upon protocol, this doesn't, of course, preclude other implementations.
 
 ### Events
+
+Events should be framework-specific. Usually the underlying framework will provide a set of events and the Clojure wrapper for that framework will have its own events (sometimes called lifecycle callbacks). To simplify things, it is suggested that the general convention is for both events to be defined in the attribute map where possible. To distinguish between platform events and lifecycle callbacks either namespace-prefixed keywords or nested maps should be used. The :on- convention for distinguishing events from other types of attributes is well understood.
