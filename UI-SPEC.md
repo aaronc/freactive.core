@@ -6,7 +6,7 @@ The goal of this document is to suggest a convention that can used for **declara
 
 Here are the conventions briefly:
 * **A "virtual node" is data in the form of `[:node-type attrs-map? & children]`** (the style that was introduced in [hiccup][hiccup], more generally called a "recursive variant tree") for ease of use
-* **If something that is "derefable"** (implements `IDeref`) **and "watchable"** (implements `cljs.core/IWatchable`, `clojure.lang.IRef` or `freactive.core/Invalidates`) **is passed as an attribute value or child in a virtual node, a reactive binding will be created** so that custom reactive data sources (*maybe even tied to database entities!*) can be used
+* **If something that is "derefable"** (implements `IDeref`) **and "watchable"** (implements `cljs.core/IWatchable`, `clojure.lang.IRef` or `freactive.core/Invalidates`) **is passed as an attribute value or child in a virtual node, a reactive binding will be created** so that custom reactive data sources (*maybe even tied to database entities!*) can be used (*some framework may only support attribute not child binding*)
 * A **common set of reactive data types (atom, cursor, expression, etc.)** will be used so that state-management is decoupled from rendering
 * **Functions can be bound as event handlers or lifecycle callbacks using attributes** (or Clojure metadata if needed)
 
@@ -15,6 +15,8 @@ Platforms that could conceivabily be targeted:
 By ClojureScript: the DOM, of course, but also Qt/QML (for native + iOS & Android apps), Canvas, WebGL, Windows Metro, etc.
 
 By Clojure: JavaFX, Processing/Quil, WPF, etc.
+
+Implementations already exist for the DOM ([freactive][freactive]) and JavaFX ([fx-clj][fx-clj] - only attribute binding supported for now).
 
 ## Details
 
@@ -43,4 +45,8 @@ freactive.core is proposed as a base library of reference types and conventions.
 
 ### Events
 
-Events should be framework-specific. Usually the underlying framework will provide a set of events and the Clojure wrapper for that framework will have its own events (sometimes called lifecycle callbacks). To simplify things, it is suggested that the general convention is for both events to be defined in the attribute map where possible. To distinguish between platform events and lifecycle callbacks either namespace-prefixed keywords or nested maps should be used. The :on- convention for distinguishing events from other types of attributes is well understood.
+Events should be framework-specific. Usually the underlying framework will provide a set of events and the Clojure wrapper for that framework will have its own events (sometimes called lifecycle callbacks). To simplify things, it is suggested that the general convention is for both events to be defined in the attribute map where possible. To distinguish between platform events and lifecycle callbacks either namespace-prefixed keywords or nested maps should be used. The :on- convention for distinguishing events from other types of attributes is well understood. Metadata attached to observable refs can also be used for binding level callbacks but should be reserved for advanced users (because it requires use of `alter-meta!` which uses mutation).
+
+[freactive]: https://github.com/aaronc/freactive
+[fx-clj]: https://github.com/aaronc/fx-clj
+[hiccup]: https://github.com/weavejester/hiccup
