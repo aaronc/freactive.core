@@ -9,9 +9,7 @@ The goal of this document is to suggest a convention for **declaratively definin
 1. **If something that is "derefable"** (implements `IDeref`) **and "watchable"** (implements `cljs.core/IWatchable`, `clojure.lang.IRef` or `freactive.core/Invalidates`) **is passed as an attribute value or child in a virtual node, a reactive binding will be created** so that custom reactive data sources (*maybe even tied to database entities!*) can be used (*some framework may only support attribute not child binding*)
 2. A **common set of reactive data types (atom, cursor, expression, etc.)** will be used so that state-management is decoupled from rendering
 3. **Functions can be bound as event handlers or lifecycle callbacks using attributes** (or Clojure metadata if needed)
-4. **A "virtual node" is data in the form of `[:node-type attrs-map? & children]`** (the style that was introduced in [hiccup][hiccup], more generally called a "recursive variant tree") for ease of use
-
-*Even if you disagree with or aren't sure about 4., please still consider 1. & 2.*
+4. **A "virtual node" is data in the form of `[:node-type attrs-map? & children]`** (the style that was introduced in [hiccup][hiccup], more generally called a "recursive variant tree") for ease of use. *Even if you disagree with this part, please still consider points 1 & 2*
 
 **Guiding Principles:**
 * Favor simple and consistent patterns wherever possible
