@@ -28,6 +28,8 @@ A reactive atom is exactly like a Clojure atom except that it allows a parent co
 
 A reactive expression, or `rx` for short, is the same concept as `computed-observable` in [reflex][reflex] and `reaction` in [reagent][reagent] (although it is currently undocumented there).
 
+Basically it is an observable reference value that attempts to capture its dependencies (such as reactive atoms, cursors and other reactive expressions). It will become dirty if a dependency changes and it will notify its change listeners that it is dirty. The next time it is `deref`'ed its value is recomputed based on the innitial expression that was passed in.
+
 ### Reactive Cursors
 
 `cursor`'s in freactive.core behave and look exactly like `atom`'s. You can use Clojurescript's built-in `swap!` and `reset!` functions on them and state will be propogated back to their parents. By default, change notifications from the parent propagate to the cursor when and only when they affect the state of the cursor.
