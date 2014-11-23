@@ -1,6 +1,6 @@
 # freactive-based User Interface Spec
 
-The goal of this document is to suggest a convention for **declaratively defining reactive user interfaces independent of the platform**.
+The goal of this document is to suggest a convention for **declaratively defining reactive user interfaces independent of the platform** (it is not about cross-platform UI which is a totally different story - just shared conventions).
 
 **Motivation:** **Make it easy for anyone to write good user interfaces** by using a consistent set of powerful idioms across frameworks/platforms (with minor variations where needed).
 
