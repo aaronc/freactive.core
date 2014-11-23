@@ -4,7 +4,7 @@ The goal of this document is to suggest a convention for **declaratively definin
 
 **Motivation:** **Make it easy for anyone to write good user interfaces** by using a consistent set of powerful idioms across frameworks/platforms (with minor variations where needed).
 
-Here are the conventions briefly:
+**Here are the conventions briefly:**
 * **A "virtual node" is data in the form of `[:node-type attrs-map? & children]`** (the style that was introduced in [hiccup][hiccup], more generally called a "recursive variant tree") for ease of use
 * **If something that is "derefable"** (implements `IDeref`) **and "watchable"** (implements `cljs.core/IWatchable`, `clojure.lang.IRef` or `freactive.core/Invalidates`) **is passed as an attribute value or child in a virtual node, a reactive binding will be created** so that custom reactive data sources (*maybe even tied to database entities!*) can be used (*some framework may only support attribute not child binding*)
 * A **common set of reactive data types (atom, cursor, expression, etc.)** will be used so that state-management is decoupled from rendering
@@ -14,13 +14,13 @@ Here are the conventions briefly:
 * Favor simple and consistent patterns wherever possible
 * Utilize as much as much possible the idioms already present in Clojure core
 
-Platforms that could conceivabily be targeted include:
+*For example's sake, platforms that could be targeted include:*
 
-By ClojureScript: the DOM, of course, but also Qt/QML (for native + iOS & Android apps), Canvas, WebGL, WinRT.
+From ClojureScript: the DOM, of course, as well as Qt/QML (for iOS/Android + desktop), Canvas, WebGL, WinRT.
 
-By Clojure: JavaFX, Processing/Quil, WPF, WinRT.
+From Clojure: JavaFX, Processing/Quil, WPF, WinRT.
 
-Implementations already exist for the DOM ([freactive][freactive]) and JavaFX ([fx-clj][fx-clj] - only attribute binding supported for now).
+*Implementations already exist for the DOM ([freactive][freactive]) and JavaFX ([fx-clj][fx-clj] - only attribute binding supported for now).*
 
 ## Details
 
