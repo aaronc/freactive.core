@@ -11,6 +11,7 @@ already in Clojure core.
 
 The data structures in this library aim to be:
 * **Generalized** - not tied to a specific problem domain or framework
+* **Idiomatic** - trying to follow and use the conventions of Clojure core
 * **Efficient** - not cause much more performance overhead than doing updates manually (possibly less in some cases)
 * **Predictable** - have predictable effects based on inputs
 * **Configurable** - in terms of laziness vs eagerness
@@ -21,9 +22,11 @@ The data structures in this library aim to be:
 
 ### Reactive Atoms
 
-A reactive atom is exactly like a Clojure atom except that it allows a parent computation to register it as a dependency.
+A reactive atom is exactly like a Clojure atom except that it allows a parent computation to register it as a dependency. It is a construct that has been described previously in [reagent][reagent] and [reflex][reflex]. The implementation here is slightly different, but the concept is the same.
 
 ### Reactive Expressions
+
+A reactive expression, or `rx` for short, is the same concept as `computed-observable` in [reflex][reflex] and `reaction` in [reagent][reagent] (although it is currently undocumented there).
 
 ### Reactive Cursors
 
