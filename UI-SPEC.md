@@ -28,7 +28,7 @@ Since this convention is quite common in the Clojure(Script) nowadays, it probab
 
 Since this choice may be controversial, some rationale is provided. It is thought that vector/keyword/map virtual nodes are a good convention because:
 
-* they intuitively make sense to people reducing the learning curve and cognitive load
+* they intuitively make sense to people thus reducing the learning curve and cognitive load
 * they correctly model something that really is a tree of heterogenous elements (apparently the nodes are called variants and the whole tree structure is called a recursive variant tree in CS terms)
 * they are extensible - keywords allow an unlimited number of application specific tags and attributes
 * they are just data
