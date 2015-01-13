@@ -1,4 +1,4 @@
-(defproject freactive.core "0.1.0-SNAPSHOT"
+(defproject freactive.core "0.2.0-SNAPSHOT"
   :description "Generic reactive atoms, expressions, cursors"
   :url "https://github.com/aaronc/freactive.core"
   :license {:name "Eclipse Public License"
@@ -10,6 +10,6 @@
     {:plugins [[com.cemerick/austin "0.1.5"]]
      :dependencies
      [[com.cemerick/clojurescript.test "0.3.1"]]}}
-  :source-paths ["src/clojure"]
+  :source-paths ["src-clj" "src-cljs"]
   :javac-options ["-Xlint:unchecked"]
-  :java-source-paths ["src/java"])
+  :java-source-paths ["src-java"])

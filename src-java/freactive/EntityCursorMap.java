@@ -44,7 +44,7 @@ public class EntityCursorMap {
         }
 
         @Override
-        public Object swap(IFn f, Object arg) {
+        public Object swap(final IFn f, final Object arg) {
             coll.update(entityKey, new AFn() {
                 @Override
                 public Object invoke(Object o) {
@@ -55,7 +55,7 @@ public class EntityCursorMap {
         }
 
         @Override
-        public Object swap(IFn f, Object arg1, Object arg2) {
+        public Object swap(final IFn f, final Object arg1, final Object arg2) {
             coll.update(entityKey, new AFn() {
                 @Override
                 public Object invoke(Object o) {
@@ -66,7 +66,7 @@ public class EntityCursorMap {
         }
 
         @Override
-        public Object swap(IFn f, Object x, Object y, ISeq args) {
+        public Object swap(final IFn f, final Object x, final Object y, final ISeq args) {
             coll.update(entityKey, new AFn() {
                 @Override
                 public Object invoke(Object o) {
@@ -82,7 +82,7 @@ public class EntityCursorMap {
         }
 
         @Override
-        public Object reset(Object newval) {
+        public Object reset(final Object newval) {
             coll.update(entityKey, new AFn() {
                 @Override
                 public Object invoke(Object arg1) {

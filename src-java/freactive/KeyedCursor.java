@@ -10,7 +10,7 @@ public class KeyedCursor extends ReactiveCursor implements IKeyedCursor {
     private static IFn CORE_ASSOC = Clojure.var("clojure.core/assoc");
     private final Object key;
 
-    public KeyedCursor(IReactiveAtom source, Object key) {
+    public KeyedCursor(IReactiveAtom source, final Object key) {
         super(source,
                 new AFn() {
                     @Override

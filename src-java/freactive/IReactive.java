@@ -7,20 +7,6 @@ public interface IReactive {
             Var.intern(Namespace.findOrCreate(Symbol.intern("freactive.core")),
                     Symbol.intern("*register-dep*"), null, false).setDynamic();
 
-    public static void registerDep(Object ref) {
-        Object v = REGISTER_DEP.deref();
-        if(v != null) {
-            ((IFn)v).invoke(ref, getBindingInfo(ref));
-        }
-    }
-
-    public static void registerDep(Object ref, BindingInfo bindingInfo) {
-        Object v = REGISTER_DEP.deref();
-        if(v != null) {
-            ((IFn)v).invoke(ref, bindingInfo);
-        }
-    }
-
     public class BindingInfo {
         private final IFn deref;
         private final IFn addWatch;
@@ -86,17 +72,6 @@ public interface IReactive {
                     return ((IInvalidates) self).removeInvalidationWatch(key);
                 }
             }, null);
-
-    public static BindingInfo getBindingInfo(Object iref) {
-        if(iref instanceof IReactive) {
-            return ((IReactive)iref).getBindingInfo();
-        } else if (iref instanceof IRef) {
-            return IRefBindingInfo;
-        } else if (iref instanceof IInvalidates) {
-            return IInvalidatesBindingInfo;
-        }
-        throw new Error(String.format("Don't know how to create binding info for %s", iref.toString()));
-    }
 
     BindingInfo getBindingInfo();
 }

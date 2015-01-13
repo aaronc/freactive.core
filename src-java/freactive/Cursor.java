@@ -401,7 +401,7 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
     }
 
     @Override
-    public IKeyedCursor getKeyedCursor(Object key) {
+    public IKeyedCursor getKeyedCursor(final Object key) {
         if(cursors == null) cursors = new Atom(PersistentHashMap.EMPTY);
         Cursor cur = (Cursor) ((IPersistentMap)cursors.deref()).valAt(key);
         if(cur != null) return cur;

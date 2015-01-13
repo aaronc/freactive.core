@@ -35,7 +35,7 @@ public ReactiveAtom(Object state, IPersistentMap meta){
 }
 
 public Object deref(){
-    IReactive.registerDep(this);
+    ReactiveExpression.registerDep(this);
 	return state.get();
 }
 

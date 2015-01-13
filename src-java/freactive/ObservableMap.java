@@ -23,7 +23,7 @@ public class ObservableMap implements ITransientMap, IObservableCollection, ITra
     }
 
     @Override
-    public ITransientMap assoc(Object k, Object v) {
+    public ITransientMap assoc(final Object k, final Object v) {
         transact(new AFn() {
             @Override
             public Object invoke() {
@@ -36,7 +36,7 @@ public class ObservableMap implements ITransientMap, IObservableCollection, ITra
     }
 
     @Override
-    public ITransientMap without(Object k) {
+    public ITransientMap without(final Object k) {
         transact(new AFn() {
             @Override
             public Object invoke() {
@@ -49,7 +49,7 @@ public class ObservableMap implements ITransientMap, IObservableCollection, ITra
     }
 
     @Override
-    public ITransientCollection conj(Object o) {
+    public ITransientCollection conj(final Object o) {
         transact(new AFn() {
             @Override
             public Object invoke() {
@@ -112,7 +112,7 @@ public class ObservableMap implements ITransientMap, IObservableCollection, ITra
     }
 
     @Override
-    public Object update(Object key, IFn f) {
+    public Object update(final Object key, final IFn f) {
         transact(new AFn() {
             @Override
             public Object invoke() {
@@ -137,11 +137,11 @@ public class ObservableMap implements ITransientMap, IObservableCollection, ITra
         return ((ILookup)atom.deref()).valAt(key, notFound);
     }
 
-    private final ThreadLocal<IPersistentMap> txState = new ThreadLocal<>();
-    private final ThreadLocal<IPersistentVector> txChanges = new ThreadLocal<>();
+    private final ThreadLocal<IPersistentMap> txState = new ThreadLocal<IPersistentMap>();
+    private final ThreadLocal<IPersistentVector> txChanges = new ThreadLocal<IPersistentVector>();
 
     @Override
-    public void transact(IFn f) {
+    public void transact(final IFn f) {
         if(txChanges.get() != null)
             f.invoke();
         else {

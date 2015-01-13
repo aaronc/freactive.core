@@ -7,6 +7,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 
 public class ReactiveExpression implements IReactiveRef {
+    public static void registerDep(Object ref) {
+        Object v = REGISTER_DEP.deref();
+        if(v != null) {
+            ((IFn)v).invoke(ref, getBindingInfo(ref));
+        }
+    }
+
+    public static void registerDep(Object ref, BindingInfo bindingInfo) {
+        Object v = REGISTER_DEP.deref();
+        if(v != null) {
+            ((IFn)v).invoke(ref, bindingInfo);
+        }
+    }
+
+    public static BindingInfo getBindingInfo(Object iref) {
+        if(iref instanceof IReactive) {
+            return ((IReactive)iref).getBindingInfo();
+        } else if (iref instanceof IRef) {
+            return IRefBindingInfo;
+        } else if (iref instanceof IInvalidates) {
+            return IInvalidatesBindingInfo;
+        }
+        throw new Error(String.format("Don't know how to create binding info for %s", iref.toString()));
+    }
+
     static final IReactive.BindingInfo LazyBindingInfo =
             new BindingInfo(new AFn() {
                 @Override
@@ -104,7 +129,7 @@ public class ReactiveExpression implements IReactiveRef {
     }
 
     class RegisterDep extends AFn {
-        public Object invoke(Object dep, Object binfo) {
+        public Object invoke(final Object dep, final Object binfo) {
             deps.swap(new AFn() {
                 @Override
                 public Object invoke(Object state) {
@@ -114,7 +139,7 @@ public class ReactiveExpression implements IReactiveRef {
 
             BindingInfo bindingInfo = (BindingInfo)binfo;
             IFn addWatch = bindingInfo.getAddWatch();
-            IFn removeWatch = bindingInfo.getRemoveWatch();
+            final IFn removeWatch = bindingInfo.getRemoveWatch();
 
             addWatch.invoke(dep, this, new AFn() {
                 @Override
@@ -159,24 +184,33 @@ public class ReactiveExpression implements IReactiveRef {
     private void invalidate() {
         if(dirty.compareAndSet(false, true)) {
             if(watches != null && !watches.empty()) {
-                compute();
+                if(recompute()) {
+                    if(invalidationWatches != null)
+                        invalidationWatches.invokeAll();
+                }
             } else {
-                invalidationWatches.invokeAll();
+                if(invalidationWatches != null)
+                    invalidationWatches.invokeAll();
             }
         }
     }
 
     protected Object compute() {
+        return func.invoke();
+    }
+
+    private boolean recompute() {
         for(; ;) {
             dirty.set(false);
             Object v = state.get();
-            Object newv = func.invoke();
+            Object newv = compute();
             if(state.compareAndSet(v, newv)) {
                 if(v != newv) {
-                    watches.invokeAll(v, newv);
-                    invalidationWatches.invokeAll();
+                    if(watches != null)
+                        watches.invokeAll(v, newv);
+                    return true;
                 }
-                return newv;
+                return false;
             }
         }
     }
@@ -187,7 +221,8 @@ public class ReactiveExpression implements IReactiveRef {
 
         try {
             Var.pushThreadBindings(RT.map(REGISTER_DEP, registerDep));
-            return compute();
+            recompute();
+            return state.get();
         }
         finally {
             Var.popThreadBindings();
@@ -195,7 +230,7 @@ public class ReactiveExpression implements IReactiveRef {
     }
     
     public Object deref() {
-        IReactive.registerDep(this, getBindingInfo());
+        registerDep(this, getBindingInfo());
         return rawDeref();
     }
 
