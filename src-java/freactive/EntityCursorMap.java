@@ -5,7 +5,7 @@ import clojure.lang.*;
 import java.util.Map;
 
 public class EntityCursorMap {
-    class EntityCursor implements IReactiveAtom, IKeyedCursor {
+    class EntityCursor implements IReactiveAtom, IKeyedCursor, IInvalidates {
         private final Object entityKey;
         private Object entityValue;
         private CallbackSet watches;

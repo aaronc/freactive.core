@@ -39,24 +39,24 @@ public class ReactiveCursor implements IReactiveAtom {
         this.source = source;
         this.viewTransform = viewTransform;
         this.updateTransform = updateTransform;
-        source.addInvalidationWatch(this, new AFn() {
-            @Override
-            public Object invoke(Object arg1, Object arg2) {
-                if(lazy) {
-                    if(dirty.compareAndSet(false, true)) {
-                        invalidationWatches.invokeAll();
-                    }
-                } else {
-                    cur = source.deref();
-                    Object newView = viewTransform.invoke(cur);
-                    if(!newView.equals(curView)) {
-                        curView = newView;
-                        invalidationWatches.invokeAll();
-                    }
-                }
-                return null;
-            }
-        });
+//        source.addInvalidationWatch(this, new AFn() {
+//            @Override
+//            public Object invoke(Object arg1, Object arg2) {
+//                if(lazy) {
+//                    if(dirty.compareAndSet(false, true)) {
+//                        invalidationWatches.invokeAll();
+//                    }
+//                } else {
+//                    cur = source.deref();
+//                    Object newView = viewTransform.invoke(cur);
+//                    if(!newView.equals(curView)) {
+//                        curView = newView;
+//                        invalidationWatches.invokeAll();
+//                    }
+//                }
+//                return null;
+//            }
+//        })null;
         source.addWatch(this, new AFn() {
             @Override
             public Object invoke(Object k, Object r, Object o, Object n) {
@@ -137,17 +137,17 @@ public class ReactiveCursor implements IReactiveAtom {
  //       return source.reset(updateTransform.invoke(newval));
     }
 
-    @Override
-    public IInvalidates addInvalidationWatch(Object key, IFn callback) {
-        source.addInvalidationWatch(key, callback);
-        return this;
-    }
-
-    @Override
-    public IInvalidates removeInvalidationWatch(Object key) {
-        source.removeInvalidationWatch(key);
-        return this;
-    }
+//    @Override
+//    public IInvalidates addInvalidationWatch(Object key, IFn callback) {
+//        source.addInvalidationWatch(key, callback);
+//        return this;
+//    }
+//
+//    @Override
+//    public IInvalidates removeInvalidationWatch(Object key) {
+//        source.removeInvalidationWatch(key);
+//        return this;
+//    }
 
     @Override
     public void setValidator(IFn iFn) {

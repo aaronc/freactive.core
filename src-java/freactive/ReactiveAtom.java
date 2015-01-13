@@ -21,7 +21,7 @@ import clojure.lang.*;
 
 import java.util.concurrent.atomic.AtomicReference;
 
-public class ReactiveAtom extends ARef implements IReactiveAtom {
+public class ReactiveAtom extends ARef implements IReactiveAtom, IInvalidates {
 
 final AtomicReference<Object> state;
     

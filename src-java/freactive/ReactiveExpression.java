@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Map;
 
-public class ReactiveExpression implements IReactiveRef {
+public class ReactiveExpression implements IReactiveRef, IInvalidates {
     public static void registerDep(Object ref) {
         Object v = REGISTER_DEP.deref();
         if(v != null) {

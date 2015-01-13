@@ -35,11 +35,9 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
     private final Object cursorKey;
     private volatile Object curView;
     private volatile Object cur;
-    private CallbackSet invalidationWatches;
     private CallbackSet watches;
     private CallbackSet subscribers;
     private Atom cursors;
-    private final boolean lazy = false;
     private final AtomicBoolean dirty = new AtomicBoolean(true);
     private final IFn viewTransform;
     private final IFn swapper;
@@ -86,26 +84,17 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
                     }
                 }
         );
-        source.addInvalidationWatch(this, new AFn() {
-            @Override
-            public Object invoke(Object arg1, Object arg2) {
-                if(lazy) {
-                    if(dirty.compareAndSet(false, true)) {
-                        if(invalidationWatches != null)
-                            invalidationWatches.invokeAll();
-                    }
-                } else {
-                    cur = source.deref();
-                    Object newView = viewTransform.invoke(cur);
-                    if(!newView.equals(curView)) {
-                        curView = newView;
-                        if(invalidationWatches != null)
-                            invalidationWatches.invokeAll();
-                    }
-                }
-                return null;
-            }
-        });
+//        source.addInvalidationWatch(this, new AFn() {
+//            @Override
+//            public Object invoke(Object arg1, Object arg2) {
+//                cur = source.deref();
+//                Object newView = viewTransform.invoke(cur);
+//                if(!newView.equals(curView)) {
+//                    curView = newView;
+//                }
+//                return null;
+//            }
+//        });
         source.addWatch(this, new AFn() {
             @Override
             public Object invoke(Object k, Object r, Object o, Object n) {
@@ -178,18 +167,6 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
                     }
                 }
         );
-    }
-
-    @Override
-    public IInvalidates addInvalidationWatch(Object key, IFn callback) {
-        source.addInvalidationWatch(key, callback);
-        return this;
-    }
-
-    @Override
-    public IInvalidates removeInvalidationWatch(Object key) {
-        source.removeInvalidationWatch(key);
-        return this;
     }
 
     @Override
@@ -382,22 +359,39 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
 
     @Override
     public ITransientVector assocN(int i, Object o) {
-        return null;
+        transact(new AFn() {
+            @Override
+            public Object invoke() {
+                txState.set(((IPersistentVector)txState.get()).assocN(i, o));
+                txChanges.set(txChanges.get().cons(PersistentVector.create(i, o)));
+                return null;
+            }
+        });
+        return this;
     }
 
     @Override
     public ITransientVector pop() {
-        return null;
+        transact(new AFn() {
+            @Override
+            public Object invoke() {
+                IPersistentStack newState = ((IPersistentStack)txState.get()).pop();
+                txState.set(newState);
+                txChanges.set(txChanges.get().cons(PersistentVector.create(newState.count())));
+                return null;
+            }
+        });
+        return this;
     }
 
     @Override
     public Object nth(int i) {
-        return null;
+        return ((Indexed)deref()).nth(i);
     }
 
     @Override
     public Object nth(int i, Object o) {
-        return null;
+        return ((Indexed)deref()).nth(i, o);
     }
 
     @Override
@@ -428,12 +422,11 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
 
     @Override
     public BindingInfo getBindingInfo() {
-        return null;
+        return EagerBindingInfo;
     }
 
     public void clean() {
         if((watches == null || watches.empty()) &&
-           (invalidationWatches == null || invalidationWatches.empty()) &&
            (subscribers == null || subscribers.empty()) &&
            (cursors == null || ((Counted)cursors.deref()).count() == 0)) {
             for(; ;) {
