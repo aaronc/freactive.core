@@ -2,8 +2,10 @@
 
 Reactive atoms, expressions, cursors for Clojure(Script).
 
+**This library should be considered pre-alpha.** Although it is approaching a more stable release, there is still a fair amount of flux internally. Currently the Clojure (JVM) and ClojureScript implementations are more or less in line. These data structurs can currently be used with [freactive](https://github.com/aaronc/freactive) (a Clojurescript DOM library) and [fx-clj](https://github.com/aaronc/freactive) (a Clojure library for JavaFX).
+
 The goal of this library is to abstract the reactive atom and reactive computation
-or computed observable concepts from [reagent][reagent] and [reflex][reflex], as
+or computed observable concepts from [reagent][reagent] and [reflex][reflex] and many others, as
 well as a generalization of the cursor concept from [om][om]. The broader aim of this
 goal is to enable a set of reactive data structures that can be shared between many
 different front-end frameworks that is also based, as much as possible, only on idioms
@@ -63,29 +65,6 @@ cursors can also be created by passing in a keyword or a key sequence that would
 ```
 
 This is somewhat similar (but not exactly) to cursors in [om][om] - which was the inspiration for cursors in freactive. It should be noted that in freactive, cursors were designed to work with lenses first and then with key or key sequences (`korks`) for convenience. A cursor doesn't know anything about the structure of data it references (i.e. the associative path from parent to child).
-
-## Core Idioms
-
-Understanding this section is not needed to use this library, but is needed for developers of
-extensions to this library as well as those who are curious about its underpinnings and
-algorithms.
-
-**Core Definitions and Patterns:**
-
-* A `reactive` refers to any `IDeref` instance which will register itself as a dependency
-to a parent computation that is `deref`ing them if the parent has bound an "invalidation"
-function thread locally
-* `reactive`'s register themselves as dependencies by adding an "invalidate" function
-that the parent has bound thread locally during the scope of the computation to their
-`add-watch` or `add-invalidation` watch (see [`IInvalidates`](#iinvalidates)).
-* **Whenever a `reactive` notifies a parent computation that it has changed, it
-stops telling the parent**  - see the next section
-
-### When reactive computations are invalidated
-
-### `*invalidate-rx*`
-
-### `IInvalidates`
 
 ## License
 
