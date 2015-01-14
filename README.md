@@ -2,7 +2,9 @@
 
 Reactive atoms, expressions, cursors for Clojure(Script).
 
-**This library should be considered pre-alpha.** Although it is approaching a more stable release, there is still a fair amount of flux internally. Currently the Clojure (JVM) and ClojureScript implementations are more or less in line. These data structurs can currently be used with [freactive](https://github.com/aaronc/freactive) (a Clojurescript DOM library) and [fx-clj](https://github.com/aaronc/freactive) (a Clojure library for JavaFX).
+**This library should be considered pre-alpha.** *Although it is approaching a more stable release, there is still a fair amount of flux internally. Currently the Clojure (JVM) and ClojureScript implementations are more or less in line. These data structurs can currently be used with [freactive](https://github.com/aaronc/freactive) (a Clojurescript DOM library) and [fx-clj](https://github.com/aaronc/freactive) (a Clojure library for JavaFX).*
+
+[![Clojars Project](http://clojars.org/freactive.core/latest-version.svg)](http://clojars.org/freactive.core)
 
 The goal of this library is to abstract the reactive atom and reactive computation
 or computed observable concepts from [reagent][reagent] and [reflex][reflex] and many others, as
