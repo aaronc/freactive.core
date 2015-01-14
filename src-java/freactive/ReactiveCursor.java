@@ -137,17 +137,17 @@ public class ReactiveCursor implements IReactiveAtom {
  //       return source.reset(updateTransform.invoke(newval));
     }
 
-//    @Override
-//    public IInvalidates addInvalidationWatch(Object key, IFn callback) {
-//        source.addInvalidationWatch(key, callback);
-//        return this;
-//    }
-//
-//    @Override
-//    public IInvalidates removeInvalidationWatch(Object key) {
-//        source.removeInvalidationWatch(key);
-//        return this;
-//    }
+    @Override
+    public IInvalidates addInvalidationWatch(Object key, IFn callback) {
+        source.addInvalidationWatch(key, callback);
+        return this;
+    }
+
+    @Override
+    public IInvalidates removeInvalidationWatch(Object key) {
+        source.removeInvalidationWatch(key);
+        return this;
+    }
 
     @Override
     public void setValidator(IFn iFn) {

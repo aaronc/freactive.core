@@ -482,4 +482,14 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
             bindingInfo.getRemoveWatch().invoke(source, this);
         }
     }
+
+    @Override
+    public IInvalidates addInvalidationWatch(Object key, IFn callback) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public IInvalidates removeInvalidationWatch(Object key) {
+        return null;
+    }
 }
