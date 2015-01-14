@@ -11,7 +11,7 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
             new BindingInfo(new AFn() {
                 @Override
                 public Object invoke(Object self) {
-                    return ((ReactiveExpression) self).rawDeref();
+                    return ((Cursor) self).rawDeref();
                 }
             }, new AFn() {
                 @Override
@@ -31,14 +31,14 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
                 }
             });
 
-    protected final IReactiveAtom source;
+    protected final IAtom source;
+    private final BindingInfo bindingInfo;
     private final Object cursorKey;
     private volatile Object curView;
-    private volatile Object cur;
+    private volatile boolean dirty = false;
     private CallbackSet watches;
     private CallbackSet subscribers;
     private Atom cursors;
-    private final AtomicBoolean dirty = new AtomicBoolean(true);
     private final IFn viewTransform;
     private final IFn swapper;
     private final ThreadLocal<Object> txState = new ThreadLocal<Object>();
@@ -71,44 +71,82 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
                 }, null);
     }
 
-    public Cursor(final IReactiveAtom source, BindingInfo bindingInfo, final IFn viewTransform, final IFn swapper, Object key) {
+    private void observeParent() {
+        bindingInfo.getAddWatch().invoke(source, this,
+                new AFn() {
+                    @Override
+                    public Object invoke(Object a) { return invoke(); }
+
+                    @Override
+                    public Object invoke(Object a, Object b) { return invoke(); }
+
+                    @Override
+                    public Object invoke(Object a, Object b, Object c) { return invoke(); }
+
+                    public Object invoke(Object a, Object b, Object c, Object d) { return invoke(); }
+
+                    @Override
+                    public Object invoke() {
+                        Object newSource = bindingInfo.getDeref().invoke(source);
+                        Object newView = viewTransform.invoke(newSource);
+                        updateThis(newView);
+                        return null;
+                    }
+                }
+        );
+    }
+
+    public Cursor(final IAtom source, BindingInfo bindingInfo, final IFn viewTransform, final IFn swapper, Object key) {
         this.source = source;
         this.viewTransform = viewTransform;
         this.swapper = swapper;
         this.cursorKey = key;
-        bindingInfo.getAddWatch().invoke(source, this,
-                new AFn() {
-                    @Override
-                    public Object invoke() {
-                        return super.invoke();
+        this.bindingInfo = bindingInfo;
+        this.curView = viewTransform.invoke(bindingInfo.getDeref().invoke(source));
+    }
+
+    private void updateThis(Object newView)
+    {
+        if(newView != curView) {
+            Object oldView = curView;
+            curView = newView;
+            if (watches != null)
+                watches.invokeAll(oldView, newView);
+//            if (subscribers != null)
+//                subscribers.invokeAll(RT.seq(newView));
+            if (cursors != null) {
+                if (newView instanceof IPersistentMap)
+                    updateCursors(RT.seq(newView));
+                else if (newView instanceof IPersistentVector) {
+                    IPersistentVector vec = (IPersistentVector) newView;
+                    int n = vec.count();
+                    for (int i = 0; i < n; ++i) {
+                        Cursor cursor = (Cursor)((IPersistentMap)cursors.deref()).valAt(i);
+                        if(cursor != null) {
+                            cursor.updateThis(vec.nth(i));
+                        }
                     }
                 }
-        );
-//        source.addInvalidationWatch(this, new AFn() {
-//            @Override
-//            public Object invoke(Object arg1, Object arg2) {
-//                cur = source.deref();
-//                Object newView = viewTransform.invoke(cur);
-//                if(!newView.equals(curView)) {
-//                    curView = newView;
-//                }
-//                return null;
-//            }
-//        });
-        source.addWatch(this, new AFn() {
-            @Override
-            public Object invoke(Object k, Object r, Object o, Object n) {
-                cur = n;
-                Object newView = viewTransform.invoke(cur);
-                if(!newView.equals(curView)) {
-                    Object oldView = curView;
-                    curView = newView;
-                    if(watches != null)
-                        watches.invokeAll(oldView, newView);
-                }
-                return null;
             }
-        });
+        }
+    }
+
+    private void updateCursors(ISeq changes)
+    {
+        for(ISeq cs = changes; cs != null; cs = cs.next())
+        {
+            ISeq kvs = RT.seq(cs.first());
+            if(kvs != null)
+            {
+                Object key = kvs.first();
+                Cursor cursor = (Cursor)((IPersistentMap)cursors.deref()).valAt(key);
+                if(cursor != null) {
+                    ISeq vs = kvs.next();
+                    Object value = vs != null ? vs.first() : null;
+                    cursor.updateThis(value);
+                }
+            }
+        }
     }
 
     @Override
@@ -199,8 +237,15 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
 
     @Override
     public Object deref() {
-        if(dirty.get())
-            curView = viewTransform.invoke(source.deref());
+       ReactiveExpression.registerDep(this, EagerBindingInfo);
+        return rawDeref();
+    }
+
+    public Object rawDeref() {
+        if(dirty) {
+            observeParent();
+            updateThis(viewTransform.invoke(bindingInfo.getDeref().invoke(source)));
+        }
         return curView;
     }
 
@@ -292,13 +337,15 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
 
     @Override
     public void subscribe(Object key, IFn handler) {
-        if(subscribers == null) subscribers = new CallbackSet(this);
+        if(subscribers == null)
+            subscribers = new CallbackSet(this);
         subscribers.add(key, handler);
     }
 
     @Override
     public void unsubscribe(Object key) {
-        if(subscribers != null) subscribers.remove(key);
+        if(subscribers != null)
+            subscribers.remove(key);
     }
 
     @Override
@@ -349,6 +396,8 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
                     }
                 });
                 subscribers.invokeAll(txChanges.get());
+                if(cursors != null)
+                    updateCursors(txChanges.get().seq());
             }
             finally {
                 txState.set(null);
@@ -429,9 +478,8 @@ public class Cursor implements IReactiveAtom, ITransientMap, ITransientVector, I
         if((watches == null || watches.empty()) &&
            (subscribers == null || subscribers.empty()) &&
            (cursors == null || ((Counted)cursors.deref()).count() == 0)) {
-            for(; ;) {
-                // TODO clean
-            }
+            dirty = true;
+            bindingInfo.getRemoveWatch().invoke(source, this);
         }
     }
 }
