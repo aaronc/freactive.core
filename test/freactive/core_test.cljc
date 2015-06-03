@@ -1,7 +1,7 @@
 (ns freactive.core-test
   (:refer-clojure :exclude [atom read-string])
   (:require
-   [freactive.core :refer
+   [freactive.core2 :refer
     [atom cursor lens-cursor update-in! update! #?(:clj rx)]]
    #?@(:cljs [[cljs.reader :refer [read-string]]
               [cljs.test :refer-macros [deftest is run-tests]]]
