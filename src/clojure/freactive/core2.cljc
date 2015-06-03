@@ -147,7 +147,8 @@
    (def ^:private cursor-binding-info
      (freactive.IReactive$BindingInfo.
       (fn [^ICursorImpl cursor] (.rawDeref cursor))
-      (fn [^IRef cursor k f] (.addWatch cursor k f))
+      (fn [cursor k f]
+        (.addWatch ^IRef cursor k f))
       (fn [^IRef cursor k] (.removeWatch cursor k))
       (fn [^ICursorImpl cursor] (.clean cursor)))))
 
@@ -391,9 +392,11 @@
         (getValidator [this])
         (getWatches [this] @watches)
         (addWatch [this key f]
-                  (println watches)
-                  (swap! watches assoc key f))
-        (removeWatch [this key] (swap! watches dissoc key))])
+                   (swap! watches assoc key f)
+                  this)
+        (removeWatch [this key]
+                     (swap! watches dissoc key)
+                     this)])
 
   IAtom
 
