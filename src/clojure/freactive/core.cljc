@@ -235,7 +235,9 @@
                      (.activate this))
         (unregisterOne [this]
                        (set! watchers (dec watchers))
-                       (when (.-auto-clean this) (.clean this)))
+                       ;; (when (.-auto-clean this) (.clean this))
+                       (.clean this)
+                       )
         (addFWatch [this key f]
                    (when-not (aget (.-fwatches this) key)
                      (aset (.-fwatches this) key f)
@@ -339,16 +341,16 @@
             (new-reactive-id)
             this
             ckey
-            (fn [this] (get (.rawDeref this) ckey))
-            (fn [this f & args]
+            (fn [cur] (get (.rawDeref this) ckey))
+            (fn [cur f & args]
               (.updateChild this ckey f args))
-            (fn [this]
-              (set! child-cursors (update child-cursors ckey conj this)))
-            (fn [this]
+            (fn [cur]
+              (set! child-cursors (update child-cursors ckey conj cur)))
+            (fn [cur]
               (set! child-cursors
                     (update child-cursors ckey
                             (fn [cursors]
-                              (let [cursors (remove #(= % this) cursors)]
+                              (let [cursors (remove #(= % cur) cursors)]
                                 (when-not (empty? cursors)
                                   cursors))))))
             nil
@@ -774,7 +776,7 @@
        (#'clojure.core/setup-reference (ReactiveExpression. f false) options))
 
      (defmacro reactive [& body]
-       `(freactive.core2/reactive*
+       `(freactive.core/reactive*
          (fn reactive-computation-fn []
            ~@body)))
 
@@ -786,7 +788,7 @@
      (def rx* reactive*)
 
      (defmacro rx [& body]
-       `(freactive.core2/rx*
+       `(freactive.core/rx*
          (fn []
            ~@body)))
 
