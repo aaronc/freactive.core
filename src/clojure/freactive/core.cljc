@@ -63,14 +63,14 @@
   (-cursor-key [this])
   (-child-cursor [this key])
   (-parent-cursor [this])
-  (-cursor-keyset [this]))
+  (-cursor-kvseq [this]))
 
 (defprotocol IChangeNotifications
   (-add-change-watch [this key f])
   (-remove-change-watch [this key]))
 
-(defn cursor-keyset [cursor]
-  (-cursor-keyset cursor))
+(defn cursor-kvseq [cursor]
+  (-cursor-kvseq cursor))
 
 (defn add-change-watch [cur key f]
   (-add-change-watch cur key f))
@@ -368,7 +368,14 @@
   (-parent-cursor [this]
     (when tkey
       parent))
-  (-cursor-keyset [this] (coll-keyset state))
+  (-cursor-kvseq [this]
+    (when state
+      (cond
+        (map? state)
+        (seq state)
+
+        (counted? state)
+        (zipmap (range (count state)) (seq state)))))
 
   IChangeNotifications
   (-add-change-watch [this key f]
@@ -867,24 +874,117 @@
 
 ;; Reactive Sequence Projection Protocols
 
-(defprotocol IReactiveProjectionTarget
-  (-proj-insert-elem [this projected-elem before-idx])
-  (-proj-get-elem [this elem-idx])
-  (-proj-move-elem [this elem-idx before-idx])
-  (-proj-remove-elem [this elem-idx])
-  (-proj-clear [this]))
+(defprotocol IProjectionSource
+  (-source-pull [this idx]))
 
-(defprotocol IReactiveProjection
-  (-project-elements [this target enqueue-fn]))
+(defn source-pull [this idx] (-source-pull this idx))
 
-(defn project-elements [projection target enqueue-fn]
-  (-project-elements projection target enqueue-fn))
+(defprotocol IProjectionTarget
+  (-target-init [this source])
+  (-target-insert [this projected-elem before-idx])
+  (-target-peek [this elem-idx])
+  (-target-take [this elem-idx])
+  (-target-count [this])
+  (-target-move [this elem-idx before-idx])
+  (-target-remove [this elem-idx])
+  (-target-clear [this]))
+
+(defn target-init [this source] (-target-init this source))
+
+(defn target-insert [this elem before-idx] (-target-insert this elem before-idx))
+
+(defn target-peek [this idx] (-target-peek this idx))
+
+(defn target-take [this idx] (-target-take this idx))
+
+(defn target-count [this] (-target-count this))
+
+(defn target-move [this idx before-idx] (-target-move this idx before-idx))
+
+(defn target-remove [this idx] (-target-remove this idx))
+
+(defn target-clear [this] (-target-clear this))
+
+(defprotocol IProjection
+  (-project [this target enqueue-fn]))
+
+(defn project [projection target enqueue-fn]
+  (-project projection target enqueue-fn))
 
 ;; Reactive Sequence Projection Implementations
 
 #?(:cljs
    (do
-     (deftype KeysetCursorProjection [cur proj-fn opts
+     (deftype FilterCursor [parent ^:mutable filter-fn ^:mutable change-watches ^:mutable active]
+       Object
+       (setFilterFn [this new-filter-fn])
+       (onChanges [this updates]
+         (map
+          (fn [[k v :as update]]
+            (cond
+              (= (count update) 1)
+              update
+
+              (not (filter-fn v))
+              [k]
+
+              :default
+              update))
+          updates))
+
+       ICursor
+       (-cursor-key [this])
+       (-child-cursor [this key]
+         (child-cursor parent key))
+       (-parent-cursor [this] parent)
+       (-cursor-kvseq [this]
+         (map (fn [[k v]] (when (filter-fn v) [k v]))
+              (cursor-kvseq parent)))
+
+       IChangeNotifications
+       (-add-change-watch [this key f]
+         (set! change-watches (assoc changes-watches key f))
+         (when-not active
+           (set! active true)))
+       (-remove-change-watch [this key]
+         (set! change-watches (dissoc changes-watches key))
+         (when (empty? change-watches)
+           (set! active false))))
+
+     (defn cursor-filter [cursor filter])
+
+     (deftype LensingCursor [parent getter setter ^:mutable change-watches]
+       Object
+       (onUpdates [this updates]
+         (let [updates*
+               (for [[k v :as update] updates]
+                 (if (= (count update) 1)
+                   update
+                   [k (getter v)]))]
+           (doseq [[k f] change-watches]
+             (f k this updates*))))
+       ICursor
+       (-cursor-key [this])
+       (-child-cursor [this key]
+         (let [cur (lens-cursor (child-cursor parent key) getter settter)]
+           (set! (.-tkey cur) key)
+           cur))
+       (-parent-cursor [this] parent)
+       (-cursor-kvseq [this]
+         (map (fn [[k v]] [k (getter v)])
+              (cursor-kvseq parent)))
+
+       IChangeNotifications
+       (-add-change-watch [this key f]
+         (set! change-watches (assoc changes-watches key f)))
+       (-remove-change-watch [this key]
+         (set! change-watches (dissoc changes-watches key))))
+
+     (defn cursor-mapping [cursor getter setter])
+
+     (defn cursor-sort [cursor {:keys [by-value by-key direction] :as sort-opts}])
+     
+     (deftype KeysetCursorProjection [cur target-fn opts
                                       ^:mutable avl-set ^:mutable target
                                       ^:mutable enqueue-fn
                                       ^:mutable filter-fn
@@ -896,8 +996,8 @@
        (dispose [this]
          (remove-change-watch cur this))
        (project [this]
-         (-proj-clear target)
-         (.onUpdates this (for [k (cursor-keyset cur)] [k (get cur k)])))
+         (target-clear target)
+         (.onUpdates this (cursor-kvseq cur)))
        (updateSortBy [this new-sort-by]
          (enqueue-fn
           (fn []
@@ -930,21 +1030,21 @@
                 (if (or (= (count update) 1) (not (filter update)))
                   (do
                     (set! avl-set (disj avl-set k))
-                    (-proj-remove-elem target cur-idx))
+                    (target-remove target cur-idx))
                   (do
                     (set! avl-set (conj avl-set k))
                     (let [new-idx (.rankOf this k)]
                       (when-not (identical? cur-idx new-idx)
-                        (-proj-move-elem target cur-idx new-idx)))))
+                        (target-move target cur-idx new-idx)))))
                 (when (filter update)
                   (set! avl-set (conj avl-set k))
-                  (-proj-insert-elem target (rx* (fn [] (proj-fn (cursor cur k)))) (.rankOf this k))))))))
+                  (target-insert target (rx* (fn [] (target-fn (cursor cur k)))) (.rankOf this k))))))))
 
-       IReactiveProjection
-       (-project-elements [this proj-target enqueue]
+       IProjection
+       (-project [this proj-target enqueue]
          (set! target proj-target)
          (set! enqueue-fn enqueue)
-         (let [{:keys [filter sort-by offset limit placeholder-idx placeholder]} opts]
+         (let [{:keys [filter sort-by offset limit]} opts]
            (when filter (bind-attr* filter #(.updateFilter this %) enqueue))
            (bind-attr* sort-by #(.updateSortBy this %) enqueue)
            (when offset (bind-attr* offset #(.updateOffset this %) enqueue))
@@ -955,6 +1055,128 @@
          (add-change-watch cur this
                            (fn [k r updates] (.onUpdates this updates)))
          (.project this)))
+
+     (deftype SeqProjectionSource [elements target enqueue]
+       Object
+       (refresh [this]
+         (dotimes [i (count elements)]
+           (target-insert target (nth elements i) nil)))
+
+       IProjectionSource
+       (-source-pull [this idx]
+         (when (< idx (count elements))
+           (aget elements idx)))) 
+
+     (defn seq-projection [elements]
+       (reify IProjection
+         (-project [this target enqueue]
+           (let [source (SeqProjectionSource. elements target enqueue)]
+             (target-init target source)
+             (enqueue (fn [] (.refresh source)))))))
+
+     (defprotocol IAsVirtualElement
+       (-as-velem [this as-velem-fn]))
+
+     (deftype VirtualElementWrapper [])
+
+     (defn- wrap [wrap-fn elem] (wrap-fn elem))
+
+     (defn- unwrap [elem] elem)
+
+     (deftype MapProjection [wrap-fn target ^:mutable source]
+       IProjectionSource
+       (-source-pull [this idx]
+         (wrap wrap-fn (source-pull source idx)))
+       
+       IProjectionTarget
+       (-target-init [this src]
+         (set! source src))
+       (-target-insert [this elem before-idx]
+         (target-insert target (wrap wrap-fn elem) before-idx))
+       (-target-peek [this i]
+         (unwrap (target-peek target i)))
+       (-target-take [this i]
+         (unwrap (target-peek target i)))
+       (-target-count [this]
+         (target-count target))
+       (-target-move [this elem-idx before-idx]
+         (target-move target elem-idx before-idx))
+       (-target-remove [this elem-idx]
+         (target-remove target elem-idx))
+       (-target-clear [this]
+         (target-clear target)))
+
+     (defn pwrap [proj wrap-fn]
+       (reify IProjection
+         (-project [this target enqueue-fn]
+           (let [pproj (MapProjection. wrap-fn target nil)]
+             (target-init target pproj)
+             (project proj pproj enqueue-fn)))))
+
+     (deftype OffsetProjection [offset source target]
+       Object
+       (translate [i]
+         (let [j (- i offset)]
+           (when (>= j 0)
+             j)))
+       IProjectionTarget
+       (-target-insert [this elem before-idx]
+         (if (> before-idx offset)
+           (target-insert target elem (- before-idx offset))))
+       (-target-peek [this i]
+         (when-let [j (translate i)]
+           (target-peek target j)))
+       (-target-take [this i]
+         (when-let [j (translate i)]
+           (target-take target j)))
+       (-target-count [this]
+         (target-count target))
+       (-target-move [this elem-idx before-idx])
+       (-target-remove [this elem-idx])
+       (-target-clear [this]))
+
+     (defn poffset [proj offset]
+       (reify IProjection
+         (-project [this target enqueue-fn]
+           (let [pproj (OffsetProjection. offset target nil)]
+             (target-init target pproj)
+             (project proj pproj enqueue-fn)))))
+
+     (deftype LimitProjection [offset source target]
+       Object
+       (translate [i]
+         (let [j (- i offset)]
+           (when (>= j 0)
+             j)))
+       IProjectionTarget
+       (-target-insert [this elem before-idx]
+         (if (> before-idx offset)
+           (target-insert target elem (- before-idx offset))))
+       (-target-peek [this i]
+         (when-let [j (translate i)]
+           (target-peek target j)))
+       (-target-take [this i]
+         (when-let [j (translate i)]
+           (target-take target j)))
+       (-target-count [this]
+         (target-count target))
+       (-target-move [this elem-idx before-idx])
+       (-target-remove [this elem-idx])
+       (-target-clear [this]))
+
+     (defn plimit [proj limit]
+       (reify IProjection
+         (-project [this target enqueue-fn]
+           (project proj (LimitProjection. limit proj target) enqueue-fn))))
+
+     (defn- cmap2* [f keyset-cursor
+                    {:keys [filter sort offset limit placeholder-idx placeholder] :as opts}]
+       (cond-> keyset-cursor
+         filter (cursor-filter filter)
+         true (cursor-sort sort)
+         offset (poffset offset)
+         limit (plimit limit)
+         true (pwrap f)))
 
      (defn cmap*
        [f keyset-cursor opts]
