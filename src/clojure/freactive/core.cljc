@@ -341,10 +341,12 @@
             (new-reactive-id)
             this
             ckey
-            (fn [cur] (get (.rawDeref this) ckey))
+            (fn [cur]
+              (get (.rawDeref this) ckey))
             (fn [cur f & args]
               (.updateChild this ckey f args))
             (fn [cur]
+              (.registerOne this)
               (set! child-cursors (update child-cursors ckey conj cur)))
             (fn [cur]
               (set! child-cursors
@@ -352,7 +354,8 @@
                             (fn [cursors]
                               (let [cursors (remove #(= % cur) cursors)]
                                 (when-not (empty? cursors)
-                                  cursors))))))
+                                  cursors)))))
+              (.unregisterOne this))
             nil
             nil
             nil
@@ -505,7 +508,7 @@
         (let [new-value (apply f (.-state cur) args)]
           (when-let [validate (.-validator cur)]
             (assert (validate new-value) "Validator rejected reference state"))
-          (.updateCursor cur new-value)))
+          (.updateCursor cur new-value *change-ks*)))
       (fn [])
       (fn [])
       nil
@@ -554,7 +557,7 @@
                  (fn [x] (setter x (apply f (getter x) args)))))
         (fn [this]
           ((.-add-watch binding-info) parent id
-           (fn [k r o n] (.updateCursor this (getter n)))))
+           (fn [k r o n] (.updateCursor this (getter n) *change-ks*))))
         (fn [this] ((.-remove-watch binding-info) parent id))
         nil
         nil
