@@ -285,7 +285,7 @@
                       (.notifyChangeWatches this [[change-key new-val]])))))))
           (cond
             has-change-watches
-            (let [old-keys (coll-keyset old-state)
+            (let [old-keys (set (coll-keyset old-state))
                   new-keys (coll-keyset state)
                   changes
                   (loop [[key & more] new-keys
@@ -920,7 +920,7 @@
                  (inc idx)
                  idx)))))
        (onUpdates [this updates]
-         (println "updates" updates)
+         ;; (println "updates" updates)
          (doseq [[k v :as update] updates]
            (if-let [cur-idx (.rankOf this k)]
              (if (or (= (count update) 1) (not (filter update)))
