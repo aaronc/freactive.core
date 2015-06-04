@@ -1,4 +1,4 @@
-(ns freactive.core2
+(ns freactive.core
   (:refer-clojure :exclude [atom])
   (:require
    #?(:cljs [goog.object])
@@ -12,8 +12,7 @@
        IFn])))
 
 #?(:cljs
-   (do
-     ;; Core API for reactive binding
+   (do ;; Core API for reactive binding
      (deftype BindingInfo [raw-deref add-watch remove-watch clean])
 
      (defprotocol IReactive
@@ -35,10 +34,10 @@
           (rdep (goog/getUid dep) (get-binding-fns dep))))
        ([dep id binding-info]
         (when-let [rdep *register-dep*]
-          (rdep dep id binding-info))))
+          (rdep dep id binding-info)))))
      :clj
      (do
-       (def ^:dynamic *register-dep* nil)
+      (def ^:dynamic *register-dep* nil)
 
        (defn register-dep
          ([dep]
@@ -47,7 +46,16 @@
           (ReactiveExpression/registerDep dep binding-info)))
 
        (defn get-binding-fns [iref]
-         (ReactiveExpression/getBindingInfo iref)))))
+         (ReactiveExpression/getBindingInfo iref))))
+
+#?(:cljs
+   (do
+     (def ^:private auto-reactive-id 0)
+
+     (defn new-reactive-id []
+       (let [id auto-reactive-id]
+         (set! auto-reactive-id (inc auto-reactive-id))
+         (str "--r." id)))))
 
 ;; Core API for cursors
 
@@ -150,36 +158,53 @@
       (fn [cursor k f]
         (.addWatch ^IRef cursor k f))
       (fn [^IRef cursor k] (.removeWatch cursor k))
-      (fn [^ICursorImpl cursor] (.clean cursor)))))
+      (fn [^ICursorImpl cursor] (.clean cursor))))
+   :cljs
+   (do
+     (def fwatch-binding-info
+       (BindingInfo.
+        #(.rawDeref %) #(.addFWatch % %2 %3) #(.removeFWatch % %2) #(.clean %)))))
 
-(deftype Cursor [parent
-                 tkey
-                 child-cursors
-                 get-fn
-                 swap-fn
-                 activate-fn
-                 clean-fn
-                 watches
-                 change-watches
-                 ^:volatile-mutable state
-                 ^:volatile-mutable metadata
-                 ^:volatile-mutable dirty 
-                 ^:volatile-mutable validator]
+
+(deftype Cursor
+    [#?(:cljs id)
+     parent
+     tkey
+     get-fn
+     swap-fn
+     activate-fn
+     clean-fn
+     #?@(:cljs
+         [^:mutable child-cursors
+          ^:mutable watches
+          ^:mutable change-watches
+          ^:mutable fwatches
+          ^:mutable watchers
+          ^:mutable state
+          ^:mutable metadata
+          ^:mutable dirty 
+          ^:mutable validator]
+         :clj
+         [child-cursors
+          watches
+          change-watches 
+          ^:volatile-mutable state
+          ^:volatile-mutable metadata
+          ^:volatile-mutable dirty 
+          ^:volatile-mutable validator])]
   #?(:cljs Object :clj ICursorImpl)
-  #?(:cljs
-      (equiv [this other]
-             (-equiv this other)))
   (activate [this]
     (when dirty
       (when activate-fn
-          (activate-fn)
-          (set! state (get-fn))
+          (activate-fn this)
+          (set! state (get-fn this))
           (set! dirty false))))
   (clean [this]
-    (when (and (empty? @watches) (empty? change-watches))
+    (when #?(:cljs (identical? 0 watchers)
+             :clj (and (empty? @watches) (empty? @change-watches)))
       (when clean-fn
         (set! dirty true)
-        (clean-fn))))
+        (clean-fn this))))
   (updateChild [this key f args]
     (binding [*change-ks* [key]]
       (apply swap-fn this update key f args))
@@ -194,7 +219,7 @@
 
   (rawDeref [this]
     (when dirty 
-      (set! state (get-fn)))
+      (set! state (get-fn this)))
     state)
   (reactiveDeref [this]
     #?(:clj
@@ -308,34 +333,33 @@
   ICursor
   (-cursor-key [this] tkey)
   (-child-cursor [this ckey]
-    (or (first (get child-cursors ckey))
-        (let [#?@(:cljs
-                  [id (new-reactive-id)
-                   cur (Cursor. id this ckey nil
-                                (fn [] (get (.rawDeref this) ckey))
-                                (fn [f & args] (.updateChild this ckey f args))
-                                (get state ckey)
-                                nil nil #js {} 0 nil)
-                   activate-fn
-                   (fn []
-                     (set! child-cursors (update child-cursors ckey conj cur)))]
-                  :clj
-                  ;; TODO clj impl
-                  [cur nil
-                   activate-fn (fn [])])]
-          ;; (activate-fn)
-          #?@(:cljs
-              [(set! (.-dirty cur) true)
-               (set! (.-activate-fn cur) activate-fn)
-               (set! (.-clean-fn cur)
-                     (fn []
-                       (set! child-cursors
-                             (update child-cursors ckey
-                                     (fn [cursors]
-                                       (let [cursors (remove #(= % cur) cursors)]
-                                         (when-not (empty? cursors)
-                                           cursors)))))))])
-          cur)))
+    #?(:cljs
+       (or (first (get child-cursors ckey))
+           (Cursor.
+            (new-reactive-id)
+            this
+            ckey
+            (fn [this] (get (.rawDeref this) ckey))
+            (fn [this f & args]
+              (.updateChild this ckey f args))
+            (fn [this]
+              (set! child-cursors (update child-cursors ckey conj this)))
+            (fn [this]
+              (set! child-cursors
+                    (update child-cursors ckey
+                            (fn [cursors]
+                              (let [cursors (remove #(= % this) cursors)]
+                                (when-not (empty? cursors)
+                                  cursors))))))
+            nil
+            nil
+            nil
+            #js {}
+            0
+            (get state ckey)
+            nil
+            true
+            nil))))
   (-parent-cursor [this]
     (when tkey
       parent))
@@ -470,25 +494,32 @@
   occur, then the value of the atom will not change."
   [init & {:keys [meta validator]}]
   #?(:cljs
-     (let [cur (Cursor. (new-reactive-id) nil nil nil nil nil init
-                        meta nil #js {} 0 nil)
-           ]
-       (set! (.-get-fn cur) (fn [] (.-state cur)))
-       (set!
-        (.-swap-fn cur)
-        (fn [f & args]
-          (let [new-value (apply f (.-state cur) args)]
-            (when-let [validate (.-validator cur)]
-              (assert (validate new-value) "Validator rejected reference state"))
-            (.updateCursor cur new-value))))
-       (when validator (set! (.-validator cur) validator))
-       cur)
+     (Cursor.
+      (new-reactive-id)
+      nil
+      nil
+      (fn [cur] (.-state cur)) 
+      (fn [cur f & args]
+        (let [new-value (apply f (.-state cur) args)]
+          (when-let [validate (.-validator cur)]
+            (assert (validate new-value) "Validator rejected reference state"))
+          (.updateCursor cur new-value)))
+      (fn [])
+      (fn [])
+      nil
+      nil
+      nil
+      #js {}
+      0
+      init
+      meta
+      false
+      validator) 
      :clj
      (let [state-ref (ref init)
            notify-agent (agent nil)]
        (Cursor. nil
                 nil
-                (clojure.core/atom nil)
                 (fn [] @state-ref)
                 (fn [^Cursor this f & args]
                   (dosync
@@ -501,6 +532,7 @@
                 (fn [this])
                 (clojure.core/atom nil)
                 (clojure.core/atom nil)
+                (clojure.core/atom nil)
                 init
                 (clojure.core/atom meta)
                 false
@@ -508,25 +540,29 @@
 
 (defn lens-cursor [parent getter setter]
   #?(:cljs
-     (let [id (new-reactive-id)
-           binding-info (get-binding-fns parent)
-           cur (Cursor.
-                id parent nil nil
-                (fn [] (getter ((.-raw-deref binding-info) parent)))
-                (fn [f & args]
-                  (swap! parent
-                         (fn [x] (setter x (apply f (getter x) args)))))
-                (getter @parent) nil nil #js {} 0 nil)
-           activate-fn
-           (fn []
-             ((.-add-watch binding-info) parent id
-              (fn [k r o n] (.updateCursor cur (getter n)))))]
-       ;; (activate-fn)
-       (set! (.-dirty cur) true)
-       (set! (.-activate-fn cur) activate-fn)
-       (set! (.-clean-fn cur)
-             (fn [] ((.-remove-watch binding-info) parent id)))
-       cur)))
+     (let [binding-info (get-binding-fns parent)
+           id (new-reactive-id)]
+       (Cursor.
+        id
+        parent
+        nil
+        (fn [this] (getter ((.-raw-deref binding-info) parent)))
+        (fn [this f & args]
+          (swap! parent
+                 (fn [x] (setter x (apply f (getter x) args)))))
+        (fn [this]
+          ((.-add-watch binding-info) parent id
+           (fn [k r o n] (.updateCursor this (getter n)))))
+        (fn [this] ((.-remove-watch binding-info) parent id))
+        nil
+        nil
+        nil
+        #js {} 
+        0
+        (getter @parent)
+        nil
+        true
+        nil))))
 
 (defn root-cursor [atom-like]
   (lens-cursor atom-like identity (fn [old new] new)))
@@ -549,13 +585,6 @@
      (def ^:dynamic *do-trace-captures* nil)
 
      (def ^:dynamic *trace-capture* nil)
-
-     (def ^:private auto-reactive-id 0)
-
-     (defn new-reactive-id []
-       (let [id auto-reactive-id]
-         (set! auto-reactive-id (inc auto-reactive-id))
-         (str "--r." id)))
 
      (defn apply-js-mixin [the-type mixin]
        (let [ptype (.-prototype the-type)]
@@ -586,10 +615,6 @@
                           (f key this oldVal newVal)))
                        (doseq [[key f] (.-watches this)]
                          (f key this oldVal newVal))))})
-
-     (def fwatch-binding-info
-       (BindingInfo.
-        #(.rawDeref %) #(.addFWatch % %2 %3) #(.removeFWatch % %2) #(.clean %)))
 
      (defn- make-register-dep [rx]
        (fn do-register-dep [dep id binding-info]
