@@ -899,12 +899,14 @@
          (-proj-clear target)
          (.onUpdates this (for [k (cursor-keyset cur)] [k (get cur k)])))
        (updateSortBy [this new-sort-by]
-         (when (or (not (identical? new-sort-by sort-by)) (nil? avl-set))
-           (set! sort-by new-sort-by)
-           (set! avl-set
-                 (if sort-by
-                   (avl/sorted-set-by sort-by)
-                   (avl/sorted-set)))))
+         (enqueue-fn
+          (fn []
+            (when (or (not (identical? new-sort-by sort-by)) (nil? avl-set))
+              (set! sort-by new-sort-by)
+              (set! avl-set
+                    (if sort-by
+                      (avl/sorted-set-by sort-by)
+                      (avl/sorted-set)))))))
        (updateFilter [this new-filter])
        (updateOffset [this new-offset])
        (updateLimit [this new-limit])
@@ -921,20 +923,22 @@
                  idx)))))
        (onUpdates [this updates]
          ;; (println "updates" updates)
-         (doseq [[k v :as update] updates]
-           (if-let [cur-idx (.rankOf this k)]
-             (if (or (= (count update) 1) (not (filter update)))
-               (do
-                 (set! avl-set (disj avl-set k))
-                 (-proj-remove-elem target cur-idx))
-               (do
-                 (set! avl-set (conj avl-set k))
-                 (let [new-idx (.rankOf this k)]
-                   (when-not (identical? cur-idx new-idx)
-                     (-proj-move-elem target cur-idx new-idx)))))
-             (when (filter update)
-               (set! avl-set (conj avl-set k))
-               (-proj-insert-elem target (rx* (fn [] (proj-fn (cursor cur k)))) (.rankOf this k))))))
+         (enqueue-fn
+          (fn []
+            (doseq [[k v :as update] updates]
+              (if-let [cur-idx (.rankOf this k)]
+                (if (or (= (count update) 1) (not (filter update)))
+                  (do
+                    (set! avl-set (disj avl-set k))
+                    (-proj-remove-elem target cur-idx))
+                  (do
+                    (set! avl-set (conj avl-set k))
+                    (let [new-idx (.rankOf this k)]
+                      (when-not (identical? cur-idx new-idx)
+                        (-proj-move-elem target cur-idx new-idx)))))
+                (when (filter update)
+                  (set! avl-set (conj avl-set k))
+                  (-proj-insert-elem target (rx* (fn [] (proj-fn (cursor cur k)))) (.rankOf this k))))))))
 
        IReactiveProjection
        (-project-elements [this proj-target enqueue]
