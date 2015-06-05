@@ -1059,13 +1059,13 @@
      (deftype SeqProjectionSource [elements target enqueue]
        Object
        (refresh [this]
-         (dotimes [i (count elements)]
-           (target-insert target (nth elements i) nil)))
+         (doseq [elem elements]
+           (target-insert target elem nil)))
 
        IProjectionSource
        (-source-pull [this idx]
          (when (< idx (count elements))
-           (aget elements idx)))) 
+           (nth elements idx)))) 
 
      (defn seq-projection [elements]
        (reify IProjection
