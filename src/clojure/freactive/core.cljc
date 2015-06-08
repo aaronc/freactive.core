@@ -885,9 +885,7 @@
   (-target-peek [this elem-idx])
   (-target-take [this elem-idx])
   (-target-count [this])
-  (-target-move [this elem-idx before-idx])
-  (-target-remove [this elem-idx])
-  (-target-clear [this]))
+  (-target-move [this elem-idx before-idx]))
 
 (defn target-init [this source] (-target-init this source))
 
@@ -901,9 +899,13 @@
 
 (defn target-move [this idx before-idx] (-target-move this idx before-idx))
 
-(defn target-remove [this idx] (-target-remove this idx))
+(defn target-remove [this idx]
+  (let [res (-target-take this idx)]
+    (dispose res)))
 
-(defn target-clear [this] (-target-clear this))
+(defn target-clear [this]
+  (dotimes [i (target-count this)]
+    (target-remove 0)))
 
 (defprotocol IProjection
   (-project [this target enqueue-fn]))
@@ -1100,11 +1102,7 @@
        (-target-count [this]
          (target-count target))
        (-target-move [this elem-idx before-idx]
-         (target-move target elem-idx before-idx))
-       (-target-remove [this elem-idx]
-         (target-remove target elem-idx))
-       (-target-clear [this]
-         (target-clear target)))
+         (target-move target elem-idx before-idx)))
 
      (defn pwrap [proj wrap-fn]
        (reify IProjection
@@ -1131,9 +1129,7 @@
            (target-take target j)))
        (-target-count [this]
          (target-count target))
-       (-target-move [this elem-idx before-idx])
-       (-target-remove [this elem-idx])
-       (-target-clear [this]))
+       (-target-move [this elem-idx before-idx]))
 
      (defn poffset [proj offset]
        (reify IProjection
@@ -1160,9 +1156,7 @@
            (target-take target j)))
        (-target-count [this]
          (target-count target))
-       (-target-move [this elem-idx before-idx])
-       (-target-remove [this elem-idx])
-       (-target-clear [this]))
+       (-target-move [this elem-idx before-idx]))
 
      (defn plimit [proj limit]
        (reify IProjection
