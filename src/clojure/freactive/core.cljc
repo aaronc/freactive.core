@@ -905,7 +905,7 @@
 
 (defn target-clear [this]
   (dotimes [i (target-count this)]
-    (target-remove 0)))
+    (target-remove this 0)))
 
 (defprotocol IProjection
   (-project [this target enqueue-fn]))
