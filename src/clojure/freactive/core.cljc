@@ -880,14 +880,11 @@
 (defn source-pull [this idx] (-source-pull this idx))
 
 (defprotocol IProjectionTarget
-  (-target-init [this source])
   (-target-insert [this projected-elem before-idx])
   (-target-peek [this elem-idx])
   (-target-take [this elem-idx])
   (-target-count [this])
   (-target-move [this elem-idx before-idx]))
-
-(defn target-init [this source] (-target-init this source))
 
 (defn target-insert [this elem before-idx] (-target-insert this elem before-idx))
 
@@ -908,7 +905,14 @@
     (target-remove this 0)))
 
 (defprotocol IProjection
-  (-project [this target enqueue-fn]))
+  (-project [this target enqueue-fn]
+    "Initializes a projection with a target IProjectionTarget and a platform
+enqueue-fn. The return value should be the actual IProjectionSource that this
+IProjection is binding to the IProjectionTarget. All updates should be
+dispatched via enqueue-fn in batches that are as big as possible - this usually
+means that updates are batched to enqueue-fn only if they are the direct result
+of some state change, not updates propogated up from a lower level projection
+source."))
 
 (defn project [projection target enqueue-fn]
   (-project projection target enqueue-fn))
@@ -1073,8 +1077,8 @@
        (reify IProjection
          (-project [this target enqueue]
            (let [source (SeqProjectionSource. elements target enqueue)]
-             (target-init target source)
-             (enqueue (fn [] (.refresh source)))))))
+             (enqueue (fn [] (.refresh source)))
+             source))))
 
      (defprotocol IAsVirtualElement
        (-as-velem [this as-velem-fn]))
@@ -1091,8 +1095,6 @@
          (wrap wrap-fn (source-pull source idx)))
        
        IProjectionTarget
-       (-target-init [this src]
-         (set! source src))
        (-target-insert [this elem before-idx]
          (target-insert target (wrap wrap-fn elem) before-idx))
        (-target-peek [this i]
@@ -1108,8 +1110,8 @@
        (reify IProjection
          (-project [this target enqueue-fn]
            (let [pproj (MapProjection. wrap-fn target nil)]
-             (target-init target pproj)
-             (project proj pproj enqueue-fn)))))
+             (set! (.-source pproj) (project proj pproj enqueue-fn))
+             pproj))))
 
      (deftype OffsetProjection [offset source target]
        Object
@@ -1135,8 +1137,8 @@
        (reify IProjection
          (-project [this target enqueue-fn]
            (let [pproj (OffsetProjection. offset target nil)]
-             (target-init target pproj)
-             (project proj pproj enqueue-fn)))))
+             (set! (.-source pproj) (project proj pproj enqueue-fn))
+             pproj))))
 
      (deftype LimitProjection [offset source target]
        Object
@@ -1161,7 +1163,10 @@
      (defn plimit [proj limit]
        (reify IProjection
          (-project [this target enqueue-fn]
-           (project proj (LimitProjection. limit proj target) enqueue-fn))))
+           (let [pproj (LimitProjection. limit proj target)]
+             (set! (.-source pproj) (project proj pproj enqueue-fn))
+             pproj))))
+     
 
      (defn- cmap2* [f keyset-cursor
                     {:keys [filter sort offset limit placeholder-idx placeholder] :as opts}]
