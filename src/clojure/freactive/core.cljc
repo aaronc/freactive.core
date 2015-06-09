@@ -886,17 +886,27 @@
   (-target-count [this])
   (-target-move [this elem-idx before-idx]))
 
-(defn target-insert [this elem before-idx] (-target-insert this elem before-idx))
+(defn target-insert [this elem before-idx]
+  (assert (>= before-idx 0))
+  (-target-insert this elem before-idx))
 
-(defn target-peek [this idx] (-target-peek this idx))
+(defn target-peek [this idx]
+  (assert (>= idx 0))
+  (-target-peek this idx))
 
-(defn target-take [this idx] (-target-take this idx))
+(defn target-take [this idx]
+  (assert (>= idx 0))
+  (-target-take this idx))
 
 (defn target-count [this] (-target-count this))
 
-(defn target-move [this idx before-idx] (-target-move this idx before-idx))
+(defn target-move [this idx before-idx]
+  (assert (>= idx 0))
+  (assert (>= before-idx 0))
+  (-target-move this idx before-idx))
 
 (defn target-remove [this idx]
+  (assert (>= idx 0))
   (let [res (-target-take this idx)]
     (dispose res)))
 
@@ -905,7 +915,7 @@
     (target-remove this 0)))
 
 (defprotocol IProjection
-  (-project [this target enqueue-fn]
+  (-project [this target enqueue-fn velem-fn]
     "Initializes a projection with a target IProjectionTarget and a platform
 enqueue-fn. The return value should be the actual IProjectionSource that this
 IProjection is binding to the IProjectionTarget. All updates should be
@@ -914,8 +924,8 @@ means that updates are batched to enqueue-fn only if they are the direct result
 of some state change, not updates propogated up from a lower level projection
 source."))
 
-(defn project [projection target enqueue-fn]
-  (-project projection target enqueue-fn))
+(defn project [projection target enqueue-fn velem-fn]
+  (-project projection target enqueue-fn velem-fn))
 
 ;; Reactive Sequence Projection Implementations
 
@@ -949,11 +959,11 @@ source."))
 
        IChangeNotifications
        (-add-change-watch [this key f]
-         (set! change-watches (assoc changes-watches key f))
+         (set! change-watches (assoc change-watches key f))
          (when-not active
            (set! active true)))
        (-remove-change-watch [this key]
-         (set! change-watches (dissoc changes-watches key))
+         (set! change-watches (dissoc change-watches key))
          (when (empty? change-watches)
            (set! active false))))
 
@@ -972,7 +982,7 @@ source."))
        ICursor
        (-cursor-key [this])
        (-child-cursor [this key]
-         (let [cur (lens-cursor (child-cursor parent key) getter settter)]
+         (let [cur (lens-cursor (child-cursor parent key) getter setter)]
            (set! (.-tkey cur) key)
            cur))
        (-parent-cursor [this] parent)
@@ -982,9 +992,9 @@ source."))
 
        IChangeNotifications
        (-add-change-watch [this key f]
-         (set! change-watches (assoc changes-watches key f)))
+         (set! change-watches (assoc change-watches key f)))
        (-remove-change-watch [this key]
-         (set! change-watches (dissoc changes-watches key))))
+         (set! change-watches (dissoc change-watches key))))
 
      (defn cursor-mapping [cursor getter setter])
 
@@ -1047,7 +1057,7 @@ source."))
                   (target-insert target (rx* (fn [] (target-fn (cursor cur k)))) (.rankOf this k))))))))
 
        IProjection
-       (-project [this proj-target enqueue]
+       (-project [this proj-target enqueue velem-fn]
          (set! target proj-target)
          (set! enqueue-fn enqueue)
          (let [{:keys [filter sort-by offset limit]} opts]
@@ -1075,7 +1085,7 @@ source."))
 
      (defn seq-projection [elements]
        (reify IProjection
-         (-project [this target enqueue]
+         (-project [this target enqueue velem-fn]
            (let [source (SeqProjectionSource. elements target enqueue)]
              (enqueue (fn [] (.refresh source)))
              source))))
@@ -1108,14 +1118,14 @@ source."))
 
      (defn pwrap [proj wrap-fn]
        (reify IProjection
-         (-project [this target enqueue-fn]
+         (-project [this target enqueue-fn velem-fn]
            (let [pproj (MapProjection. wrap-fn target nil)]
-             (set! (.-source pproj) (project proj pproj enqueue-fn))
+             (set! (.-source pproj) (project proj pproj enqueue-fn velem-fn))
              pproj))))
 
      (deftype OffsetProjection [offset source target]
        Object
-       (translate [i]
+       (translate [this i]
          (let [j (- i offset)]
            (when (>= j 0)
              j)))
@@ -1124,10 +1134,10 @@ source."))
          (if (> before-idx offset)
            (target-insert target elem (- before-idx offset))))
        (-target-peek [this i]
-         (when-let [j (translate i)]
+         (when-let [j (.translate this i)]
            (target-peek target j)))
        (-target-take [this i]
-         (when-let [j (translate i)]
+         (when-let [j (.translate this i)]
            (target-take target j)))
        (-target-count [this]
          (target-count target))
@@ -1135,14 +1145,14 @@ source."))
 
      (defn poffset [proj offset]
        (reify IProjection
-         (-project [this target enqueue-fn]
+         (-project [this target enqueue-fn velem-fn]
            (let [pproj (OffsetProjection. offset target nil)]
-             (set! (.-source pproj) (project proj pproj enqueue-fn))
+             (set! (.-source pproj) (project proj pproj enqueue-fn velem-fn))
              pproj))))
 
      (deftype LimitProjection [offset source target]
        Object
-       (translate [i]
+       (translate [this i]
          (let [j (- i offset)]
            (when (>= j 0)
              j)))
@@ -1151,10 +1161,10 @@ source."))
          (if (> before-idx offset)
            (target-insert target elem (- before-idx offset))))
        (-target-peek [this i]
-         (when-let [j (translate i)]
+         (when-let [j (.translate this i)]
            (target-peek target j)))
        (-target-take [this i]
-         (when-let [j (translate i)]
+         (when-let [j (.translate this i)]
            (target-take target j)))
        (-target-count [this]
          (target-count target))
@@ -1162,9 +1172,9 @@ source."))
 
      (defn plimit [proj limit]
        (reify IProjection
-         (-project [this target enqueue-fn]
+         (-project [this target enqueue-fn velem-fn]
            (let [pproj (LimitProjection. limit proj target)]
-             (set! (.-source pproj) (project proj pproj enqueue-fn))
+             (set! (.-source pproj) (project proj pproj enqueue-fn velem-fn))
              pproj))))
      
 
