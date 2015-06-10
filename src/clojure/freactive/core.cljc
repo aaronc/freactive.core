@@ -550,44 +550,50 @@
                 false
                 nil))))
 
-(defn lens-cursor [parent getter setter]
-  #?(:cljs
-     (let [binding-info (get-binding-fns parent)
-           id (new-reactive-id)]
-       (Cursor.
-        id
-        parent
-        nil
-        (fn [this] (getter ((.-raw-deref binding-info) parent)))
-        (fn [this f & args]
-          (swap! parent
-                 (fn [x] (setter x (apply f (getter x) args)))))
-        (fn [this]
-          ((.-add-watch binding-info) parent id
-           (fn [k r o n] (.updateCursor this (getter n) *change-ks*))))
-        (fn [this] ((.-remove-watch binding-info) parent id))
-        nil
-        nil
-        nil
-        #js {} 
-        0
-        (getter @parent)
-        nil
-        true
-        nil))))
+(defn lens-cursor
+  "Creates a lens cursor. If the 1-arity version is used or setter is nil, the
+cursor is read-only."
+  ([parent getter]
+   (lens-cursors parent getter nil))
+  ([parent getter setter]
+   #? (:cljs
+       (let [binding-info (get-binding-fns parent)
+             id (new-reactive-id)]
+         (Cursor.
+          id
+          parent
+          nil
+          (fn [this] (getter ((.-raw-deref binding-info) parent)))
+          (if setter
+            (fn [this f & args]
+              (swap! parent
+                     (fn [x] (setter x (apply f (getter x) args)))))
+            (fn [] (throw (ex-info "Cursor is read-only"))))
+          (fn [this]
+            ((.-add-watch binding-info) parent id
+             (fn [k r o n] (.updateCursor this (getter n) *change-ks*))))
+          (fn [this] ((.-remove-watch binding-info) parent id))
+          nil
+          nil
+          nil
+          #js {} 
+          0
+          (getter @parent)
+          nil
+          true
+          nil)))))
 
 (defn root-cursor [atom-like]
   (lens-cursor atom-like identity (fn [old new] new)))
   
 (defn cursor
-  ([] (atom nil))
-  ([parent] (root-cursor parent))
-  ([parent korks]
-   (if (sequential? korks)
-     (descendant-cursor parent korks)
-     (child-cursor parent korks)))
-  ([parent getter setter]
-   (lens-cursor parent getter setter)))
+  "Creates an associative cursor from the given parent to the provided
+key or key-sequence (korks). Lens cursors should be created explicitly
+using the lens-cursor function."
+  [parent korks]
+  (if (sequential? korks)
+    (descendant-cursor parent korks)
+    (child-cursor parent korks)))
 
 ;; Reactive Expression Implementation
 
@@ -899,6 +905,8 @@
   (assert (>= before-idx 0))
   (-target-insert this elem before-idx))
 
+(defn target-count [this] (-target-count this))
+
 (defn target-peek [this idx]
   (when (and (>= 0 idx) (<= (- (target-count this) 1)))
     (-target-peek this idx)))
@@ -906,8 +914,6 @@
 (defn target-take [this idx]
   (assert (>= idx 0))
   (-target-take this idx))
-
-(defn target-count [this] (-target-count this))
 
 (defn target-move [this idx before-idx]
   (assert (>= idx 0))
