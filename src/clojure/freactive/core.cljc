@@ -891,8 +891,8 @@
   (-target-insert this elem before-idx))
 
 (defn target-peek [this idx]
-  (assert (>= idx 0))
-  (-target-peek this idx))
+  (when (and (>= 0 idx) (<= (- (target-count this) 1)))
+    (-target-peek this idx)))
 
 (defn target-take [this idx]
   (assert (>= idx 0))
@@ -1110,7 +1110,7 @@ source."))
        (-target-peek [this i]
          (unwrap (target-peek target i)))
        (-target-take [this i]
-         (unwrap (target-peek target i)))
+         (unwrap (target-take target i)))
        (-target-count [this]
          (target-count target))
        (-target-move [this elem-idx before-idx]
