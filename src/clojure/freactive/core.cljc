@@ -822,6 +822,7 @@
      (when (.-dispose this)
        (try
          (.dispose this)
+         true
          (catch :default e
            (.warn js/console "Error while disposing state" e this))))))
 
@@ -837,8 +838,7 @@
    (do
      (deftype ReactiveAttribute [#?(:cljs id) the-ref ^BindingInfo binding-info set-fn enqueue-fn
                                  #?(:cljs ^:mutable disposed
-                                          :clj ^:volatile-mutable disposed)
-                                 ]
+                                          :clj ^:volatile-mutable disposed)]
        IFn
        (#?(:cljs -invoke :clj invoke) [this new-val]
          (.dispose this)
@@ -858,14 +858,23 @@
          ((.-remove-watch binding-info) the-ref #?(:cljs id :clj this))
          (enqueue-fn #(.set this))))
 
+     (deftype SimpleAttribute [set-fn enqueue-fn]
+       IFn
+       (#?(:cljs -invoke :clj invoke) [this new-val]
+         (.dispose this)
+         (bind-attr* new-val set-fn enqueue-fn))
+       #?(:cljs Object :clj IReactiveAttributeImpl)
+       (dispose [this] (set-fn nil)))
+
      (defn bind-attr* [the-ref set-fn enqueue-fn]
        (if (satisfies? IDeref the-ref)
-         (let [binding (ReactiveAttribute. #?(:cljs (new-reactive-id)) the-ref (get-binding-fns the-ref) set-fn enqueue-fn false)]
+         (let [binding
+               (ReactiveAttribute. #?(:cljs (new-reactive-id)) the-ref (get-binding-fns the-ref) set-fn enqueue-fn false)]
            (.set binding)
            binding)
          (do
            (set-fn the-ref)
-           set-fn)))
+           (SimpleAttribute. set-fn enqueue-fn))))
 
      (defn attr-binder** [enqueue-fn]
        (fn attr-binder* [set-fn]
