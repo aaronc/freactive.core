@@ -864,14 +864,6 @@ using the lens-cursor function."
          ((.-remove-watch binding-info) the-ref #?(:cljs id :clj this))
          (enqueue-fn #(.set this))))
 
-     (deftype SimpleAttribute [set-fn enqueue-fn]
-       IFn
-       (#?(:cljs -invoke :clj invoke) [this new-val]
-         (.dispose this)
-         (bind-attr* new-val set-fn enqueue-fn))
-       #?(:cljs Object :clj IReactiveAttributeImpl)
-       (dispose [this] (set-fn nil)))
-
      (defn bind-attr* [the-ref set-fn enqueue-fn]
        (if (satisfies? IDeref the-ref)
          (let [binding
@@ -880,7 +872,9 @@ using the lens-cursor function."
            binding)
          (do
            (set-fn the-ref)
-           (SimpleAttribute. set-fn enqueue-fn))))
+           (fn [new-val]
+             (set-fn nil)
+             (bind-attr* new-val set-fn enqueue-fn)))))
 
      (defn attr-binder** [enqueue-fn]
        (fn attr-binder* [set-fn]
