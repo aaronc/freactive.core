@@ -554,7 +554,7 @@
   "Creates a lens cursor. If the 1-arity version is used or setter is nil, the
 cursor is read-only."
   ([parent getter]
-   (lens-cursors parent getter nil))
+   (lens-cursor parent getter nil))
   ([parent getter setter]
    #? (:cljs
        (let [binding-info (get-binding-fns parent)
