@@ -568,7 +568,7 @@ cursor is read-only."
             (fn [this f & args]
               (swap! parent
                      (fn [x] (setter x (apply f (getter x) args)))))
-            (fn [] (throw (ex-info "Cursor is read-only"))))
+            (fn [] (throw (ex-info "Cursor is read-only" {}))))
           (fn [this]
             ((.-add-watch binding-info) parent id
              (fn [k r o n] (.updateCursor this (getter n) *change-ks*))))
@@ -604,36 +604,6 @@ using the lens-cursor function."
 
      (def ^:dynamic *trace-capture* nil)
 
-     (defn apply-js-mixin [the-type mixin]
-       (let [ptype (.-prototype the-type)]
-         (goog.object/forEach
-          mixin
-          (fn [val key obj]
-            (aset ptype key val)))))
-
-     (def fwatch-mixin
-       #js {:addFWatch
-            (fn addFWatch [key f]
-              (this-as this
-                       (when-not (aget (.-fwatches this) key)
-                         (set! (.-watchers this) (inc (.-watchers this)))
-                         (aset (.-fwatches this) key f))))
-            :removeFWatch
-            (fn removeFWatch [key]
-              (this-as this
-                       (when (aget (.-fwatches this) key)
-                         (set! (.-watchers this) (dec (.-watchers this)))
-                         (js-delete (.-fwatches this) key))))
-            :notifyFWatches
-            (fn notifyFWatches [oldVal newVal]
-              (this-as this
-                       (goog.object/forEach
-                        (.-fwatches this)
-                        (fn [f key _]
-                          (f key this oldVal newVal)))
-                       (doseq [[key f] (.-watches this)]
-                         (f key this oldVal newVal))))})
-
      (defn- make-register-dep [rx]
        (fn do-register-dep [dep id binding-info]
          (when *trace-capture* (*trace-capture* dep))
@@ -645,65 +615,13 @@ using the lens-cursor function."
             (js-delete (.-deps rx) id)
             (.invalidate rx)))))
 
-     (def invalidates-mixin
-       #js {:notifyInvalidationWatches
-            (fn notifyInvalidationWatches []
-              (this-as this
-                       (goog.object/forEach
-                        (.-invalidation-watches this)
-                        (fn [f key _]
-                          (f key this)))))
-            :addInvalidationWatch 
-            (fn addInvalidationWatch [key f]
-              (this-as this
-                       (when-not (aget (.-invalidation-watches this) key)
-                         (set! (.-iwatchers this) (inc (.-iwatchers this)))
-                         (aset (.-invalidation-watches this) key f))
-                       this))
-            :removeInvalidationWatch
-            (fn removeInvalidationWatch [key]
-              (this-as this
-                       (when (aget (.-invalidation-watches this) key)
-                         (set! (.-iwatchers this) (dec (.-iwatchers this)))
-                         (js-delete (.-invalidation-watches this) key))
-                       this))
-            :invalidate
-            (fn invalidate []
-              (this-as this
-                       (when-not (.-dirty this)
-                         (set! (.-dirty this) true)
-                         (if (> (.-watchers this) 0)
-                           ;; updates state and notifies watches
-                           (when (.compute this)
-                             (.notifyInvalidationWatches this))
-                           ;; updates only invalidation watches
-                           (.notifyInvalidationWatches this))
-                         (.clean this)
-                         )))})
-
      (def invalidates-binding-info
        (BindingInfo.
         #(.rawDeref %)
         #(.addInvalidationWatch % %2 %3)
         #(.removeInvalidationWatch % %2)
         #(.clean %)))
-
-     (def rx-mixin
-       #js
-       {:reactiveDeref (fn reactiveDeref []
-                         (this-as this
-                                  (if (.-lazy this)
-                                    (register-dep this (.-id this) invalidates-binding-info)
-                                    (register-dep this (.-id this) fwatch-binding-info))
-                                  (when (.-dirty this) (.compute this))
-                                  (.-state this)))
-        :rawDeref (fn rawDeref []
-                    (this-as this
-                             (when (.-dirty this)
-                               (binding [*register-dep* nil]
-                                 (.compute this)))
-                             (.-state this)))})
-
+     
      (deftype ReactiveExpression [id ^:mutable state ^:mutable dirty f deps meta watches fwatches watchers
                                   invalidation-watches iwatchers
                                   register-dep-fn lazy trace-captures]
@@ -735,6 +653,58 @@ using the lens-cursor function."
                                   (js-delete obj key)))
            (set! (.-dirty this) true)))
        (dispose [this] (.clean this))
+       (addFWatch [this key f]
+         (when-not (aget (.-fwatches this) key)
+           (set! (.-watchers this) (inc (.-watchers this)))
+           (aset (.-fwatches this) key f)))
+       (removeFWatch [this key]
+         (when (aget (.-fwatches this) key)
+           (set! (.-watchers this) (dec (.-watchers this)))
+           (js-delete (.-fwatches this) key)))
+       (notifyFWatches [this oldVal newVal]
+         (goog.object/forEach
+          (.-fwatches this)
+          (fn [f key _]
+            (f key this oldVal newVal)))
+         (doseq [[key f] (.-watches this)]
+           (f key this oldVal newVal)))
+
+       (notifyInvalidationWatches [this]
+         (goog.object/forEach
+          (.-invalidation-watches this)
+          (fn [f key _]
+            (f key this))))
+       (addInvalidationWatch [this key f]
+         (when-not (aget (.-invalidation-watches this) key)
+           (set! (.-iwatchers this) (inc (.-iwatchers this)))
+           (aset (.-invalidation-watches this) key f))
+         this)
+       (removeInvalidationWatch [this key]
+         (when (aget (.-invalidation-watches this) key)
+           (set! (.-iwatchers this) (dec (.-iwatchers this)))
+           (js-delete (.-invalidation-watches this) key))
+         this)
+       (invalidate [this]
+         (when-not (.-dirty this)
+           (set! (.-dirty this) true)
+           (if (> (.-watchers this) 0)
+             ;; updates state and notifies watches
+             (when (.compute this)
+               (.notifyInvalidationWatches this))
+             ;; updates only invalidation watches
+             (.notifyInvalidationWatches this))
+           (.clean this)))
+       (reactiveDeref [this]
+         (if (.-lazy this)
+           (register-dep this (.-id this) invalidates-binding-info)
+           (register-dep this (.-id this) fwatch-binding-info))
+         (when (.-dirty this) (.compute this))
+         (.-state this))
+       (rawDeref [this]
+         (when (.-dirty this)
+           (binding [*register-dep* nil]
+             (.compute this)))
+         (.-state this))
        
        IReactive
        (-get-binding-fns [this]
@@ -769,10 +739,6 @@ using the lens-cursor function."
 
        IHash
        (-hash [this] (goog/getUid this)))
-
-     (apply-js-mixin ReactiveExpression fwatch-mixin)
-     (apply-js-mixin ReactiveExpression invalidates-mixin)
-     (apply-js-mixin ReactiveExpression rx-mixin)
 
      (defn rx*
        ([f] (rx* f true))
