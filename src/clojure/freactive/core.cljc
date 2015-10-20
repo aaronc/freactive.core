@@ -1,9 +1,14 @@
 (ns freactive.core
   (:refer-clojure :exclude [atom])
   (:require
-   #?(:cljs [goog.object])
+   #?@(:cljs
+       [[goog.object]
+        [freactive.util]])
    [clojure.set :as set]
    [clojure.data.avl :as avl])
+  #?(:cljs
+     (:require-macros
+      [freactive.macros :refer [defsubtype]]))
   #?(:clj
      (:import
       [freactive ReactiveExpression StatefulReactive]
@@ -13,6 +18,7 @@
 
 #?(:cljs
    (do ;; Core API for reactive binding
+
      (deftype BindingInfo [raw-deref add-watch remove-watch clean])
 
      (defprotocol IReactive

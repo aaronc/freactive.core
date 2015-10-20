@@ -41,3 +41,12 @@
   `(freactive.core/cmap*
     (fn [~bind-sym] ~body)
     ~keyset-cursor ~opts))
+
+(defmacro defsubtype [t fields supertype & impls]
+  (let [env &env
+        r (:name (cljs.analyzer/resolve-var (dissoc env :locals) t))
+        impls (cons 'Object impls)]
+    `(do
+       (deftype ~t ~fields ~@impls)
+       (freactive.util/inherit! ~t ~supertype)
+       ~t)))
