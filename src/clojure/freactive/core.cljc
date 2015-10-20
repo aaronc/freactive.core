@@ -19,19 +19,21 @@
        (-get-binding-fns [this]))
 
      (def ^:private iwatchable-binding-fns
-       (BindingInfo. cljs.core/-deref cljs.core/-add-watch cljs.core/-remove-watch nil))
+       (BindingInfo. cljs.core/-deref cljs.core/-add-watch cljs.core/-remove-watch (fn [])))
 
      (defn get-binding-fns [iref]
-       (if (satisfies? IReactive iref)
-         (-get-binding-fns iref)
-         iwatchable-binding-fns))
+       (cond (satisfies? IReactive iref)
+             (-get-binding-fns iref)
+             (and (satisfies? IDeref iref) (satisfies? IWatchable iref))
+             iwatchable-binding-fns))
 
      (def ^:dynamic *register-dep* nil)
 
      (defn register-dep
        ([dep]
         (when-let [rdep *register-dep*]
-          (rdep (goog/getUid dep) (get-binding-fns dep))))
+          (when-let [binding-fns (get-binding-fns dep)]
+            (rdep dep (goog/getUid dep) binding-fns))))
        ([dep id binding-info]
         (when-let [rdep *register-dep*]
           (rdep dep id binding-info)))))
@@ -206,7 +208,8 @@
         (set! dirty true)
         (clean-fn this))))
   (updateChild [this key f args]
-    (binding [*change-ks* [key]]
+    (binding [*change-ks* ;; TODO: (conj *change-ks* key)
+              [key]]
       (apply swap-fn this update key f args))
     this)
   (assocChild [this key val]
