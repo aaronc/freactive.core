@@ -567,12 +567,13 @@ cursor is read-only."
   ([parent getter setter]
    #? (:cljs
        (let [binding-info (get-binding-fns parent)
-             id (new-reactive-id)]
+             id (new-reactive-id)
+             getter (fn [this] (getter ((.-raw-deref binding-info) parent)))]
          (Cursor.
           id
           parent
           nil
-          (fn [this] (getter ((.-raw-deref binding-info) parent)))
+          getter
           (if setter
             (fn [this f & args]
               (swap! parent
@@ -580,7 +581,7 @@ cursor is read-only."
             (fn [] (throw (ex-info "Cursor is read-only" {}))))
           (fn [this]
             ((.-add-watch binding-info) parent id
-             (fn [k r o n] (.updateCursor this (getter n) *change-ks*))))
+             (fn [] (.updateCursor this (getter this) nil))))
           (fn [this] ((.-remove-watch binding-info) parent id))
           nil
           nil
