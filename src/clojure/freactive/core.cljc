@@ -769,12 +769,12 @@ using the lens-cursor function."
 
      (defmacro reactive [& body]
        `(freactive.core/reactive*
-         (fn reactive-computation-fn []
+         (fn ~'reactive-computation-fn []
            ~@body)))
 
      (defmacro eager-reactive [& body]
        `(freactive.core/eager-reactive*
-         (fn reactive-computation-fn []
+         (fn ~'reactive-computation-fn []
            ~@body)))
 
      (def rx* reactive*)
